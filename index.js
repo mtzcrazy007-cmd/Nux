@@ -23,7 +23,27 @@ client.on("messageCreate", async (message) => {
   if (message.content.toLowerCase() === "!nux") {
     return message.reply("Nux está online 🔥");
   }
+if (message.content.startsWith("!limpar")) {
+  if (!message.member.permissions.has("ManageMessages")) {
+    return message.reply("Você não tem permissão.");
+  }
 
+  const quantidade = parseInt(message.content.split(" ")[1]);
+
+  if (!quantidade || quantidade < 1 || quantidade > 100) {
+    return message.reply("Use: !limpar 1-100");
+  }
+
+  try {
+    await message.channel.bulkDelete(quantidade, true);
+    const msg = await message.channel.send(`🧹 Apaguei ${quantidade} mensagens.`);
+    setTimeout(() => msg.delete(), 3000);
+  } catch (error) {
+    console.error(error);
+    message.reply("Erro ao limpar mensagens.");
+  }
+}
+  
   if (message.channel.id !== CANAL_PROIBIDO) return;
   if (message.member.roles.cache.has(CARGO_IMUNE)) return;
 
