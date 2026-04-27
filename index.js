@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits } = require("discord.js");
+const { Client, GatewayIntentBits, PermissionsBitField } = require("discord.js");
 
 const client = new Client({
   intents: [
@@ -19,31 +19,36 @@ const TEMPO_CASTIGO = 7 * 24 * 60 * 60 * 1000;
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
   if (!message.guild) return;
+  if (!message.member) return;
 
   if (message.content.toLowerCase() === "!nux") {
     return message.reply("Nux está online 🔥");
   }
-if (message.content.startsWith("!limpar")) {
-  if (!message.member.permissions.has("ManageMessages")) {
-    return message.reply("Você não tem permissão.");
+
+  if (message.content.toLowerCase().startsWith("!limpar")) {
+    if (!message.member.permissions.has(PermissionsBitField.Flags.ManageMessages)) {
+      return message.reply("Você não tem permissão.");
+    }
+
+    const quantidade = parseInt(message.content.split(" ")[1]);
+
+    if (!quantidade || quantidade < 1 || quantidade > 100) {
+      return message.reply("Use: !limpar 1-100");
+    }
+
+    try {
+      await message.channel.bulkDelete(quantidade, true);
+
+      const msg = await message.channel.send(`🧹 Apaguei ${quantidade} mensagens.`);
+      setTimeout(() => msg.delete().catch(() => {}), 3000);
+
+      return;
+    } catch (error) {
+      console.error("Erro ao limpar mensagens:", error);
+      return message.reply("Erro ao limpar mensagens.");
+    }
   }
 
-  const quantidade = parseInt(message.content.split(" ")[1]);
-
-  if (!quantidade || quantidade < 1 || quantidade > 100) {
-    return message.reply("Use: !limpar 1-100");
-  }
-
-  try {
-    await message.channel.bulkDelete(quantidade, true);
-    const msg = await message.channel.send(`🧹 Apaguei ${quantidade} mensagens.`);
-    setTimeout(() => msg.delete(), 3000);
-  } catch (error) {
-    console.error(error);
-    message.reply("Erro ao limpar mensagens.");
-  }
-}
-  
   if (message.channel.id !== CANAL_PROIBIDO) return;
   if (message.member.roles.cache.has(CARGO_IMUNE)) return;
 
