@@ -4,7 +4,8 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildMembers
   ]
 });
 
@@ -15,6 +16,16 @@ client.once("ready", () => {
 const CANAL_PROIBIDO = "1497952527658782750";
 const CARGO_IMUNE = "669228551001866259";
 const TEMPO_CASTIGO = 7 * 24 * 60 * 60 * 1000;
+
+client.on("guildMemberAdd", async (member) => {
+  try {
+    await member.send(`
+🔥 **SEJA MUITO BEM VINDO AO F7 NUX** 🔥
+    `);
+  } catch (error) {
+    console.log(`Não consegui enviar DM para ${member.user.tag}`);
+  }
+});
 
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
