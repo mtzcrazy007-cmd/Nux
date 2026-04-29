@@ -20,7 +20,7 @@ const TEMPO_CASTIGO = 7 * 24 * 60 * 60 * 1000;
 client.on("guildMemberAdd", async (member) => {
   try {
     await member.send(`
-🔥 **SEJA MUITO BEM VINDO AO F7 NUX** 🔥
+:FOGO: **SEJA MUITO BEM VINDO AO F7 NUX** :FOGO:
     `);
   } catch (error) {
     console.log(`Não consegui enviar DM para ${member.user.tag}`);
