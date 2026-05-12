@@ -239,7 +239,6 @@ client.on("messageCreate", async (message) => {
   }
 
   const comandosAdm = [
-    "!aviso",
     "!limpar",
     "!comandos",
     "!cargoimune",
@@ -274,7 +273,6 @@ client.on("messageCreate", async (message) => {
 
 🧹 **MODERAÇÃO**
 \`!limpar quantidade\`
-\`!aviso mensagem\`
 
 🚫 **ANTSPAM**
 \`!antspam aqui\`
@@ -365,26 +363,6 @@ client.on("messageCreate", async (message) => {
     }
 
     return;
-  }
-
-  // !aviso mensagem
-  if (comando === "!aviso") {
-    const aviso = args.slice(1).join(" ");
-    if (!aviso) return message.reply("Use: `!aviso sua mensagem`");
-
-    const membros = await message.guild.members.fetch();
-    const humanos = membros.filter(m => !m.user.bot);
-
-    message.reply(`📤 Enviando aviso para ${humanos.size} membros...`);
-
-    for (const [, membro] of humanos) {
-      try {
-        await membro.send(`📢 **Aviso de ${message.guild.name}**\n\n${aviso}`);
-        await new Promise(r => setTimeout(r, 1000));
-      } catch {}
-    }
-
-    return message.channel.send("✅ Processo de avisos finalizado.");
   }
 
   // !canalaviso aqui
