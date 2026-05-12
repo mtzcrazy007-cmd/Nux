@@ -9,9 +9,14 @@ const {
   ChannelType
 } = require("discord.js");
 
+const OpenAI = require("openai");
 const fs = require("fs");
 
 const DONO_ID = "669163751957725204";
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
 
 const client = new Client({
   intents: [
@@ -107,7 +112,6 @@ setInterval(async () => {
     for (const aviso of config.avisosAuto) {
       if (aviso.hora === horaAtual && aviso.ultimoEnvio !== dataAtual) {
         await canal.send(aviso.mensagem).catch(() => {});
-
         aviso.ultimoEnvio = dataAtual;
         salvarConfigs();
       }
@@ -147,6 +151,43 @@ client.on("messageCreate", async (message) => {
   const comando = args[0]?.toLowerCase();
   const isAdmin = message.member.permissions.has(PermissionFlagsBits.Administrator);
 
+  // IA
+  if (comando === "!ia") {
+    const pergunta = args.slice(1).join(" ");
+
+    if (!pergunta) {
+      return message.reply("Use: `!ia sua pergunta aqui`");
+    }
+
+    if (!process.env.OPENAI_API_KEY) {
+      return message.reply("❌ A chave da IA não foi configurada.");
+    }
+
+    await message.channel.sendTyping();
+
+    try {
+      const resposta = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: "Você é um assistente simpático para um servidor Discord. Responda curto, claro e em português."
+          },
+          {
+            role: "user",
+            content: pergunta
+          }
+        ]
+      });
+
+      const texto = resposta.choices[0].message.content;
+      return message.reply(texto.slice(0, 1900));
+    } catch (erro) {
+      console.log("Erro na IA:", erro);
+      return message.reply("❌ Deu erro ao usar a IA.");
+    }
+  }
+
   // ANTSPAM
   if (config.canalAntspam && message.channel.id === config.canalAntspam) {
     const imune =
@@ -158,9 +199,7 @@ client.on("messageCreate", async (message) => {
         message.member.communicationDisabledUntilTimestamp &&
         message.member.communicationDisabledUntilTimestamp > Date.now();
 
-      if (jaEstaPunido || usuariosPunidos.has(message.author.id)) {
-        return;
-      }
+      if (jaEstaPunido || usuariosPunidos.has(message.author.id)) return;
 
       usuariosPunidos.add(message.author.id);
 
@@ -195,12 +234,16 @@ client.on("messageCreate", async (message) => {
 
   if (comando === "!listservers") {
     if (message.author.id !== DONO_ID) {
-      return message.reply("❌ Você não tem permissão.");
+      return message.reply("❌ Você não tem permissão para usar este comando.");
     }
 
     const lista = client.guilds.cache.map(g =>
       `${g.name} | ${g.id}`
     ).join("\n");
+
+    if (!lista) {
+      return message.reply("Não estou em nenhum servidor.");
+    }
 
     return message.reply(`📋 Servidores:\n\`\`\`\n${lista}\n\`\`\``);
   }
@@ -211,10 +254,16 @@ client.on("messageCreate", async (message) => {
     }
 
     const guildId = args[1];
-    if (!guildId) return message.reply("Use: `!sairid ID_DO_SERVIDOR`");
+
+    if (!guildId) {
+      return message.reply("Use: `!sairid ID_DO_SERVIDOR`");
+    }
 
     const guild = client.guilds.cache.get(guildId);
-    if (!guild) return message.reply("❌ Servidor não encontrado.");
+
+    if (!guild) {
+      return message.reply("❌ Servidor não encontrado.");
+    }
 
     const nomeServidor = guild.name;
     await guild.leave();
@@ -248,6 +297,7 @@ client.on("messageCreate", async (message) => {
 📢 GERAL
 \`!nux\`
 \`!comandos\`
+\`!ia pergunta\`
 
 👑 DONO
 \`!listservers\`
@@ -275,7 +325,9 @@ client.on("messageCreate", async (message) => {
       `)
       .setTimestamp();
 
-    return message.channel.send({ embeds: [embed] });
+    return message.channel.send({
+      embeds: [embed]
+    });
   }
 
   if (comando === "!limpar") {
@@ -295,7 +347,9 @@ client.on("messageCreate", async (message) => {
   }
 
   if (comando === "!canalaviso") {
-    if (args[1] !== "aqui") return message.reply("Use: `!canalaviso aqui`");
+    if (args[1] !== "aqui") {
+      return message.reply("Use: `!canalaviso aqui`");
+    }
 
     config.canalAviso = message.channel.id;
     salvarConfigs();
@@ -336,7 +390,9 @@ client.on("messageCreate", async (message) => {
     }
 
     const lista = config.avisosAuto
-      .map((aviso, index) => `**${index + 1}.** ${aviso.hora} — ${aviso.mensagem}`)
+      .map((aviso, index) => {
+        return `**${index + 1}.** ${aviso.hora} — ${aviso.mensagem}`;
+      })
       .join("\n");
 
     return message.reply({
@@ -351,10 +407,16 @@ client.on("messageCreate", async (message) => {
 
   if (comando === "!removeravisoauto") {
     const numero = parseInt(args[1]);
-    if (!numero) return message.reply("Use: `!removeravisoauto número`");
+
+    if (!numero) {
+      return message.reply("Use: `!removeravisoauto número`");
+    }
 
     const index = numero - 1;
-    if (!config.avisosAuto[index]) return message.reply("❌ Aviso não encontrado.");
+
+    if (!config.avisosAuto[index]) {
+      return message.reply("❌ Aviso não encontrado.");
+    }
 
     const removido = config.avisosAuto.splice(index, 1)[0];
     salvarConfigs();
@@ -376,7 +438,9 @@ client.on("messageCreate", async (message) => {
   }
 
   if (comando === "!antspam") {
-    if (args[1] !== "aqui") return message.reply("Use: `!antspam aqui`");
+    if (args[1] !== "aqui") {
+      return message.reply("Use: `!antspam aqui`");
+    }
 
     config.canalAntspam = message.channel.id;
     salvarConfigs();
@@ -385,7 +449,9 @@ client.on("messageCreate", async (message) => {
   }
 
   if (comando === "!boost") {
-    if (args[1] !== "aqui") return message.reply("Use: `!boost aqui`");
+    if (args[1] !== "aqui") {
+      return message.reply("Use: `!boost aqui`");
+    }
 
     config.canalBoost = message.channel.id;
     salvarConfigs();
@@ -407,7 +473,9 @@ client.on("messageCreate", async (message) => {
   }
 
   if (comando === "!ticket") {
-    if (args[1] !== "aqui") return message.reply("Use: `!ticket aqui`");
+    if (args[1] !== "aqui") {
+      return message.reply("Use: `!ticket aqui`");
+    }
 
     const embed = new EmbedBuilder()
       .setColor("#b20710")
@@ -533,8 +601,11 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
+process.on("unhandledRejection", console.error);
+process.on("uncaughtException", console.error);
+
 if (!process.env.TOKEN) {
-  console.log("❌ TOKEN não encontrado nas Variables do Railway.");
+  console.log("❌ TOKEN não encontrado nas Variables.");
   process.exit(1);
 }
 
