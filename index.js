@@ -59,12 +59,17 @@ function getConfig(guildId) {
 function horaBrasil() {
   const agora = new Date();
 
-  return new Intl.DateTimeFormat("pt-BR", {
+  const partes = new Intl.DateTimeFormat("pt-BR", {
     timeZone: "America/Sao_Paulo",
     hour: "2-digit",
     minute: "2-digit",
     hour12: false
-  }).format(agora);
+  }).formatToParts(agora);
+
+  const hora = partes.find(p => p.type === "hour").value;
+  const minuto = partes.find(p => p.type === "minute").value;
+
+  return `${hora}:${minuto}`;
 }
 
 function dataBrasil() {
