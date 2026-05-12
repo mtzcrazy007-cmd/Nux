@@ -1,5 +1,3 @@
-require('dotenv').config(); // Carrega o TOKEN do arquivo .env
-const {
   Client,
   GatewayIntentBits,
   PermissionFlagsBits,
