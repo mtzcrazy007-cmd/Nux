@@ -29,7 +29,8 @@ const usuariosPunidos = new Set();
 if (fs.existsSync("./configs.json")) {
   try {
     configs = JSON.parse(fs.readFileSync("./configs.json", "utf8"));
-  } catch {
+  } catch (e) {
+    console.error("Erro ao ler configs.json:", e);
     configs = {};
   }
 }
@@ -51,25 +52,16 @@ function getConfig(guildId) {
   }
 
   if (!configs[guildId].avisosAuto) configs[guildId].avisosAuto = [];
-  if (!("canalAviso" in configs[guildId])) configs[guildId].canalAviso = null;
-
   return configs[guildId];
 }
 
 function horaBrasil() {
-  const agora = new Date();
-
-  const partes = new Intl.DateTimeFormat("pt-BR", {
+  return new Intl.DateTimeFormat("pt-BR", {
     timeZone: "America/Sao_Paulo",
     hour: "2-digit",
     minute: "2-digit",
     hour12: false
-  }).formatToParts(agora);
-
-  const hora = partes.find(p => p.type === "hour").value;
-  const minuto = partes.find(p => p.type === "minute").value;
-
-  return `${hora}:${minuto}`;
+  }).format(new Date());
 }
 
 function dataBrasil() {
@@ -83,7 +75,7 @@ function dataBrasil() {
 
 client.once("clientReady", () => {
   console.log(`✅ ${client.user.tag} está online!`);
-  console.log(`📌 Estou em ${client.guilds.cache.size} servidores.`);
+  console.log(`📌 Servidores: ${client.guilds.cache.size}`);
 });
 
 // AVISOS AUTOMÁTICOS
@@ -93,7 +85,6 @@ setInterval(async () => {
 
   for (const guildId in configs) {
     const config = getConfig(guildId);
-
     if (!config.canalAviso || !config.avisosAuto.length) continue;
 
     const guild = client.guilds.cache.get(guildId);
@@ -110,7 +101,7 @@ setInterval(async () => {
       }
     }
   }
-}, 60 * 1000);
+}, 60000);
 
 // BOOST
 client.on("guildMemberUpdate", async (oldMember, newMember) => {
@@ -125,17 +116,17 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
       .setColor("#ff73fa")
       .setTitle("🚀 Novo Booster!")
       .setDescription(`${newMember} impulsionou o servidor!\n\nObrigado pelo apoio ❤️`)
-      .setThumbnail(newMember.user.displayAvatarURL({ dynamic: true }))
+      .setThumbnail(newMember.user.displayAvatarURL({ forceStatic: false }))
       .setTimestamp();
 
     canal.send({
-      content: `🎉 Obrigado ${newMember}!`,
+      content: `🎉 Parabéns ${newMember}!`,
       embeds: [embed]
     }).catch(() => {});
   }
 });
 
-// MENSAGENS / COMANDOS
+// COMANDOS E MENSAGENS
 client.on("messageCreate", async (message) => {
   if (message.author.bot || !message.guild || !message.member) return;
 
@@ -144,19 +135,14 @@ client.on("messageCreate", async (message) => {
   const comando = args[0]?.toLowerCase();
   const isAdmin = message.member.permissions.has(PermissionFlagsBits.Administrator);
 
-  // ANTSPAM AUTOMÁTICO
+  // ANTSPAM
   if (config.canalAntspam && message.channel.id === config.canalAntspam) {
     const imune =
       isAdmin ||
       (config.cargoImune && message.member.roles.cache.has(config.cargoImune));
 
     if (!imune) {
-      const jaPunido =
-        message.member.communicationDisabledUntilTimestamp &&
-        message.member.communicationDisabledUntilTimestamp > Date.now();
-
-      if (jaPunido || usuariosPunidos.has(message.author.id)) return;
-
+      if (usuariosPunidos.has(message.author.id)) return;
       usuariosPunidos.add(message.author.id);
 
       await message.delete().catch(() => {});
@@ -164,11 +150,11 @@ client.on("messageCreate", async (message) => {
       if (message.member.moderatable) {
         await message.member.timeout(
           TEMPO_CASTIGO,
-          "Falou no canal antispam"
+          "Spam no canal protegido"
         ).catch(() => {});
 
         const aviso = await message.channel.send(
-          `🚫 ${message.author} foi castigado por 7 dias.`
+          `🚫 ${message.author} foi castigado por 7 dias (Antispam).`
         ).catch(() => null);
 
         if (aviso) {
@@ -176,10 +162,7 @@ client.on("messageCreate", async (message) => {
         }
       }
 
-      setTimeout(() => {
-        usuariosPunidos.delete(message.author.id);
-      }, 10000);
-
+      setTimeout(() => usuariosPunidos.delete(message.author.id), 10000);
       return;
     }
   }
@@ -188,38 +171,38 @@ client.on("messageCreate", async (message) => {
     return message.reply("Nux online! 🤖");
   }
 
-  if (comando === "!listservers") {
+  if (comando === "!listservers" || comando === "!sairid") {
     if (message.author.id !== DONO_ID) {
-      return message.reply("❌ Você não tem permissão.");
+      return message.reply("❌ Acesso negado.");
     }
 
-    const lista = client.guilds.cache
-      .map(g => `${g.name} | ${g.id}`)
-      .join("\n");
+    if (comando === "!listservers") {
+      const lista = client.guilds.cache
+        .map(g => `${g.name} (${g.id})`)
+        .join("\n");
 
-    if (!lista) return message.reply("Não estou em nenhum servidor.");
-
-    return message.reply(`📋 Servidores:\n\`\`\`\n${lista}\n\`\`\``);
-  }
-
-  if (comando === "!sairid") {
-    if (message.author.id !== DONO_ID) {
-      return message.reply("❌ Você não tem permissão.");
+      return message.reply(`📋 **Servidores:**\n\`\`\`\n${lista || "Nenhum"}\n\`\`\``);
     }
 
-    const guildId = args[1];
-    if (!guildId) return message.reply("Use: `!sairid ID_DO_SERVIDOR`");
+    if (comando === "!sairid") {
+      const id = args[1];
 
-    const guild = client.guilds.cache.get(guildId);
-    if (!guild) return message.reply("❌ Servidor não encontrado.");
+      if (!id) {
+        return message.reply("Use: `!sairid ID_DO_SERVIDOR`");
+      }
 
-    const nomeServidor = guild.name;
-    await guild.leave();
+      const guildParaSair = client.guilds.cache.get(id);
 
-    return message.reply(`✅ Saí do servidor: ${nomeServidor}`);
+      if (!guildParaSair) {
+        return message.reply("❌ ID inválido.");
+      }
+
+      await guildParaSair.leave();
+      return message.reply(`✅ Saí do servidor: ${guildParaSair.name}`);
+    }
   }
 
-  const comandosAdm = [
+  const comandosRestritos = [
     "!limpar",
     "!comandos",
     "!cargoimune",
@@ -233,15 +216,16 @@ client.on("messageCreate", async (message) => {
     "!removeravisoauto"
   ];
 
-  if (comandosAdm.includes(comando) && !isAdmin) {
-    return message.reply("❌ Apenas administradores podem usar este comando.");
+  if (comandosRestritos.includes(comando) && !isAdmin) {
+    return message.reply("❌ Sem permissão.");
   }
 
-  if (comando === "!comandos") {
-    const embed = new EmbedBuilder()
-      .setColor("#b20710")
-      .setTitle("🤖 Comandos do Bot")
-      .setDescription(`
+  switch (comando) {
+    case "!comandos": {
+      const embedCmd = new EmbedBuilder()
+        .setColor("#b20710")
+        .setTitle("🤖 Menu de Comandos")
+        .setDescription(`
 📢 GERAL
 \`!nux\`
 \`!comandos\`
@@ -255,185 +239,212 @@ client.on("messageCreate", async (message) => {
 
 🚫 ANTSPAM
 \`!antspam aqui\`
-\`!cargoimune ID\`
+\`!cargoimune ID ou @cargo\`
 
 🚀 BOOST
 \`!boost aqui\`
 
 🎫 TICKETS
 \`!ticket aqui\`
-\`!cargoticket ID\`
+\`!cargoticket ID ou @cargo\`
 
 ⏰ AVISOS AUTOMÁTICOS
 \`!canalaviso aqui\`
 \`!avisoauto HH:MM mensagem\`
 \`!avisosauto\`
 \`!removeravisoauto número\`
-      `)
-      .setTimestamp();
+        `)
+        .setTimestamp();
 
-    return message.channel.send({ embeds: [embed] });
-  }
-
-  if (comando === "!limpar") {
-    const quantidade = parseInt(args[1]);
-
-    if (!quantidade || quantidade < 1 || quantidade > 100) {
-      return message.reply("Use: `!limpar 1 até 100`");
+      return message.channel.send({ embeds: [embedCmd] });
     }
 
-    await message.channel.bulkDelete(quantidade, true).catch(() => {
-      return message.reply("❌ Não consegui apagar as mensagens.");
-    });
+    case "!limpar": {
+      const qtd = parseInt(args[1]);
 
-    const msg = await message.channel.send(`✅ ${quantidade} mensagens apagadas.`);
-    setTimeout(() => msg.delete().catch(() => {}), 5000);
-    return;
-  }
+      if (!qtd || qtd < 1 || qtd > 100) {
+        return message.reply("Use: `!limpar 1 até 100`");
+      }
 
-  if (comando === "!canalaviso") {
-    if (args[1] !== "aqui") return message.reply("Use: `!canalaviso aqui`");
+      try {
+        await message.channel.bulkDelete(qtd, true);
 
-    config.canalAviso = message.channel.id;
-    salvarConfigs();
+        const msgL = await message.channel.send(
+          `✅ Limpeza de ${qtd} mensagens concluída.`
+        );
 
-    return message.reply("✅ Canal de avisos configurado.");
-  }
+        setTimeout(() => msgL.delete().catch(() => {}), 5000);
+      } catch (erro) {
+        console.log("Erro ao limpar mensagens:", erro);
+        return message.reply("❌ Não consegui apagar. Verifique se tenho permissão de Gerenciar Mensagens.");
+      }
 
-  if (comando === "!avisoauto") {
-    const hora = args[1];
-    const mensagem = args.slice(2).join(" ");
-
-    if (!hora || !mensagem) {
-      return message.reply("Use: `!avisoauto 14:00 mensagem`");
+      return;
     }
 
-    if (!/^\d{2}:\d{2}$/.test(hora)) {
-      return message.reply("❌ Horário inválido. Use HH:MM");
+    case "!antspam": {
+      if (args[1] !== "aqui") {
+        return message.reply("Use: `!antspam aqui`");
+      }
+
+      config.canalAntspam = message.channel.id;
+      salvarConfigs();
+
+      return message.reply("✅ Canal protegido.");
     }
 
-    if (!config.canalAviso) {
-      return message.reply("❌ Configure primeiro: `!canalaviso aqui`");
+    case "!cargoimune": {
+      const cargoId = args[1]?.replace(/[<@&>]/g, "");
+
+      if (!cargoId) {
+        return message.reply("Use: `!cargoimune ID_DO_CARGO` ou `!cargoimune @cargo`");
+      }
+
+      const cargo = message.guild.roles.cache.get(cargoId);
+
+      if (!cargo) {
+        return message.reply("❌ Cargo não encontrado. Use o ID correto ou mencione o cargo.");
+      }
+
+      config.cargoImune = cargoId;
+      salvarConfigs();
+
+      return message.reply(`✅ Cargo imune configurado: ${cargo}`);
     }
 
-    config.avisosAuto.push({
-      hora,
-      mensagem,
-      ultimoEnvio: null
-    });
+    case "!boost": {
+      if (args[1] !== "aqui") {
+        return message.reply("Use: `!boost aqui`");
+      }
 
-    salvarConfigs();
+      config.canalBoost = message.channel.id;
+      salvarConfigs();
 
-    return message.reply(`✅ Aviso automático criado para ${hora}.`);
-  }
-
-  if (comando === "!avisosauto") {
-    if (!config.avisosAuto.length) {
-      return message.reply("❌ Nenhum aviso automático.");
+      return message.reply("✅ Canal de boost configurado.");
     }
 
-    const lista = config.avisosAuto
-      .map((aviso, index) => `**${index + 1}.** ${aviso.hora} — ${aviso.mensagem}`)
-      .join("\n");
+    case "!cargoticket": {
+      const cargoId = args[1]?.replace(/[<@&>]/g, "");
 
-    return message.reply({
-      embeds: [
-        new EmbedBuilder()
-          .setColor("#b20710")
-          .setTitle("⏰ Avisos Automáticos")
-          .setDescription(lista)
-      ]
-    });
-  }
+      if (!cargoId) {
+        return message.reply("Use: `!cargoticket ID_DO_CARGO` ou `!cargoticket @cargo`");
+      }
 
-  if (comando === "!removeravisoauto") {
-    const numero = parseInt(args[1]);
+      const cargo = message.guild.roles.cache.get(cargoId);
 
-    if (!numero) {
-      return message.reply("Use: `!removeravisoauto número`");
+      if (!cargo) {
+        return message.reply("❌ Cargo não encontrado. Use o ID correto ou mencione o cargo.");
+      }
+
+      config.cargoTicket = cargoId;
+      salvarConfigs();
+
+      return message.reply(`✅ Cargo da staff para tickets configurado: ${cargo}`);
     }
 
-    const index = numero - 1;
+    case "!ticket": {
+      if (args[1] !== "aqui") {
+        return message.reply("Use: `!ticket aqui`");
+      }
 
-    if (!config.avisosAuto[index]) {
-      return message.reply("❌ Aviso não encontrado.");
+      const embedT = new EmbedBuilder()
+        .setColor("#b20710")
+        .setTitle("🎫 Suporte")
+        .setDescription("Clique abaixo para abrir um atendimento.")
+        .setTimestamp();
+
+      const btnT = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("abrir_ticket")
+          .setLabel("Abrir Ticket")
+          .setStyle(ButtonStyle.Danger)
+          .setEmoji("🎫")
+      );
+
+      return message.channel.send({
+        embeds: [embedT],
+        components: [btnT]
+      });
     }
 
-    const removido = config.avisosAuto.splice(index, 1)[0];
-    salvarConfigs();
+    case "!canalaviso": {
+      if (args[1] !== "aqui") {
+        return message.reply("Use: `!canalaviso aqui`");
+      }
 
-    return message.reply(`✅ Aviso das ${removido.hora} removido.`);
-  }
+      config.canalAviso = message.channel.id;
+      salvarConfigs();
 
-  if (comando === "!cargoimune") {
-    const cargoId = args[1]?.replace(/[<@&>]/g, "");
-
-    if (!cargoId) {
-      return message.reply("Use: `!cargoimune ID_DO_CARGO`");
+      return message.reply("✅ Canal de avisos configurado.");
     }
 
-    config.cargoImune = cargoId;
-    salvarConfigs();
+    case "!avisoauto": {
+      const hora = args[1];
+      const msgAviso = args.slice(2).join(" ");
 
-    return message.reply("✅ Cargo imune salvo.");
-  }
+      if (!hora || !msgAviso) {
+        return message.reply("Use: `!avisoauto HH:MM mensagem`");
+      }
 
-  if (comando === "!antspam") {
-    if (args[1] !== "aqui") return message.reply("Use: `!antspam aqui`");
+      if (!/^\d{2}:\d{2}$/.test(hora)) {
+        return message.reply("❌ Horário inválido. Use HH:MM, exemplo: `18:30`");
+      }
 
-    config.canalAntspam = message.channel.id;
-    salvarConfigs();
+      if (!config.canalAviso) {
+        return message.reply("❌ Configure primeiro: `!canalaviso aqui`");
+      }
 
-    return message.reply("✅ Canal protegido configurado.");
-  }
+      config.avisosAuto.push({
+        hora,
+        mensagem: msgAviso,
+        ultimoEnvio: null
+      });
 
-  if (comando === "!boost") {
-    if (args[1] !== "aqui") return message.reply("Use: `!boost aqui`");
+      salvarConfigs();
 
-    config.canalBoost = message.channel.id;
-    salvarConfigs();
-
-    return message.reply("✅ Canal de boost configurado.");
-  }
-
-  if (comando === "!cargoticket") {
-    const cargoId = args[1]?.replace(/[<@&>]/g, "");
-
-    if (!cargoId) {
-      return message.reply("Use: `!cargoticket ID_DO_CARGO`");
+      return message.reply(`✅ Aviso automático agendado para ${hora}.`);
     }
 
-    config.cargoTicket = cargoId;
-    salvarConfigs();
+    case "!avisosauto": {
+      if (!config.avisosAuto.length) {
+        return message.reply("❌ Nenhum aviso automático cadastrado.");
+      }
 
-    return message.reply("✅ Cargo do ticket configurado.");
-  }
+      const lista = config.avisosAuto
+        .map((aviso, index) => `**${index + 1}.** ${aviso.hora} — ${aviso.mensagem}`)
+        .join("\n");
 
-  if (comando === "!ticket") {
-    if (args[1] !== "aqui") return message.reply("Use: `!ticket aqui`");
+      const embedAvisos = new EmbedBuilder()
+        .setColor("#b20710")
+        .setTitle("⏰ Avisos Automáticos")
+        .setDescription(lista)
+        .setTimestamp();
 
-    const embed = new EmbedBuilder()
-      .setColor("#b20710")
-      .setTitle("🎫 Central de Atendimento")
-      .setDescription("Clique no botão abaixo para abrir um ticket.")
-      .setTimestamp();
+      return message.reply({ embeds: [embedAvisos] });
+    }
 
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("abrir_ticket")
-        .setLabel("Abrir Ticket")
-        .setEmoji("🎫")
-        .setStyle(ButtonStyle.Danger)
-    );
+    case "!removeravisoauto": {
+      const numero = parseInt(args[1]);
 
-    return message.channel.send({
-      embeds: [embed],
-      components: [row]
-    });
+      if (!numero) {
+        return message.reply("Use: `!removeravisoauto número`");
+      }
+
+      const index = numero - 1;
+
+      if (!config.avisosAuto[index]) {
+        return message.reply("❌ Aviso não encontrado. Use `!avisosauto` para ver a lista.");
+      }
+
+      const removido = config.avisosAuto.splice(index, 1)[0];
+      salvarConfigs();
+
+      return message.reply(`✅ Aviso das ${removido.hora} removido.`);
+    }
   }
 });
 
-// BOTÕES
+// INTERAÇÕES TICKET
 client.on("interactionCreate", async (interaction) => {
   if (!interaction.isButton()) return;
   if (!interaction.guild) return;
@@ -441,18 +452,20 @@ client.on("interactionCreate", async (interaction) => {
   const config = getConfig(interaction.guild.id);
 
   if (interaction.customId === "abrir_ticket") {
-    const ticketExistente = interaction.guild.channels.cache.find(c =>
-      c.name === `ticket-${interaction.user.username.toLowerCase()}`
+    const nomeCanal = `ticket-${interaction.user.username}`.toLowerCase();
+
+    const jaExiste = interaction.guild.channels.cache.find(
+      c => c.name === nomeCanal
     );
 
-    if (ticketExistente) {
+    if (jaExiste) {
       return interaction.reply({
-        content: `⚠️ Você já possui um ticket aberto: ${ticketExistente}`,
+        content: `⚠️ Você já tem um ticket aberto: ${jaExiste}`,
         ephemeral: true
       });
     }
 
-    const permissoes = [
+    const permissionOverwrites = [
       {
         id: interaction.guild.id,
         deny: [PermissionFlagsBits.ViewChannel]
@@ -469,7 +482,7 @@ client.on("interactionCreate", async (interaction) => {
     ];
 
     if (config.cargoTicket) {
-      permissoes.push({
+      permissionOverwrites.push({
         id: config.cargoTicket,
         allow: [
           PermissionFlagsBits.ViewChannel,
@@ -482,10 +495,18 @@ client.on("interactionCreate", async (interaction) => {
 
     try {
       const canal = await interaction.guild.channels.create({
-        name: `ticket-${interaction.user.username}`.toLowerCase(),
+        name: nomeCanal,
         type: ChannelType.GuildText,
-        permissionOverwrites: permissoes
+        permissionOverwrites
       });
+
+      const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("fechar_ticket")
+          .setLabel("Fechar")
+          .setStyle(ButtonStyle.Secondary)
+          .setEmoji("🔒")
+      );
 
       const embedTicket = new EmbedBuilder()
         .setColor("#b20710")
@@ -495,46 +516,30 @@ client.on("interactionCreate", async (interaction) => {
         )
         .setTimestamp();
 
-      const fecharRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-          .setCustomId("fechar_ticket")
-          .setLabel("Fechar Ticket")
-          .setEmoji("🔒")
-          .setStyle(ButtonStyle.Secondary)
-      );
-
-      await interaction.reply({
-        content: `✅ Ticket criado: ${canal}`,
-        ephemeral: true
-      });
-
       await canal.send({
         content: `${interaction.user} ${
           config.cargoTicket ? `<@&${config.cargoTicket}>` : ""
         }`,
         embeds: [embedTicket],
-        components: [fecharRow]
+        components: [row]
+      });
+
+      return interaction.reply({
+        content: `✅ Ticket aberto: ${canal}`,
+        ephemeral: true
       });
     } catch (erro) {
       console.log("Erro ao criar ticket:", erro);
 
-      if (!interaction.replied) {
-        await interaction.reply({
-          content: "❌ Erro ao criar ticket.",
-          ephemeral: true
-        });
-      }
+      return interaction.reply({
+        content: "❌ Não consegui abrir o ticket. Verifique minhas permissões.",
+        ephemeral: true
+      });
     }
   }
 
   if (interaction.customId === "fechar_ticket") {
-    const embedFechar = new EmbedBuilder()
-      .setColor("#2f3136")
-      .setTitle("🔒 Ticket Encerrado")
-      .setDescription("Este ticket será fechado em 5 segundos.")
-      .setTimestamp();
-
-    await interaction.reply({ embeds: [embedFechar] });
+    await interaction.reply("🔒 Fechando em 5 segundos...");
 
     setTimeout(() => {
       interaction.channel.delete().catch(() => {});
