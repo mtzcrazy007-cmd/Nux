@@ -20,31 +20,22 @@ const client = new Client({
   ]
 });
 
-// CONFIG
 const TEMPO_CASTIGO = 7 * 24 * 60 * 60 * 1000;
 let configs = {};
 
-// CARREGAR CONFIGS
 if (fs.existsSync("./configs.json")) {
   try {
-    configs = JSON.parse(
-      fs.readFileSync("./configs.json", "utf8")
-    );
+    configs = JSON.parse(fs.readFileSync("./configs.json", "utf8"));
   } catch (err) {
-    console.log("Erro ao carregar configs.");
+    console.log("Erro ao carregar configs.json");
     configs = {};
   }
 }
 
-// SALVAR CONFIGS
 function salvarConfigs() {
-  fs.writeFileSync(
-    "./configs.json",
-    JSON.stringify(configs, null, 2)
-  );
+  fs.writeFileSync("./configs.json", JSON.stringify(configs, null, 2));
 }
 
-// PEGAR CONFIGS
 function getConfig(guildId) {
   if (!configs[guildId]) {
     configs[guildId] = {
@@ -60,55 +51,36 @@ function getConfig(guildId) {
   return configs[guildId];
 }
 
-// BOT ONLINE
 client.once("ready", () => {
-  console.log(`✅ ${client.user.tag} online!`);
+  console.log(`✅ ${client.user.tag} está online!`);
 });
 
-// BOAS VINDAS
 client.on("guildMemberAdd", async (member) => {
   const config = getConfig(member.guild.id);
 
   if (!config.canalBoasVindas) return;
 
-  const canal = member.guild.channels.cache.get(
-    config.canalBoasVindas
-  );
-
+  const canal = member.guild.channels.cache.get(config.canalBoasVindas);
   if (!canal) return;
 
-  const mensagem = config.msgBoasVindas.replace(
-    "{user}",
-    `${member}`
-  );
-
+  const mensagem = config.msgBoasVindas.replace("{user}", `${member}`);
   canal.send(mensagem).catch(() => {});
 });
 
-// BOOST
 client.on("guildMemberUpdate", async (oldMember, newMember) => {
   if (!oldMember.premiumSince && newMember.premiumSince) {
     const config = getConfig(newMember.guild.id);
 
     if (!config.canalBoost) return;
 
-    const canal = newMember.guild.channels.cache.get(
-      config.canalBoost
-    );
-
+    const canal = newMember.guild.channels.cache.get(config.canalBoost);
     if (!canal) return;
 
     const embed = new EmbedBuilder()
       .setColor("#ff73fa")
       .setTitle("🚀 Novo Booster!")
-      .setDescription(
-        `${newMember} impulsionou o servidor!\n\nObrigado pelo apoio ❤️`
-      )
-      .setThumbnail(
-        newMember.user.displayAvatarURL({
-          dynamic: true
-        })
-      )
+      .setDescription(`${newMember} impulsionou o servidor!\n\nObrigado pelo apoio ❤️`)
+      .setThumbnail(newMember.user.displayAvatarURL({ dynamic: true }))
       .setTimestamp();
 
     canal.send({
@@ -118,30 +90,21 @@ client.on("guildMemberUpdate", async (oldMember, newMember) => {
   }
 });
 
-// COMANDOS
 client.on("messageCreate", async (message) => {
-  if (
-    message.author.bot ||
-    !message.guild ||
-    !message.member
-  ) return;
+  if (message.author.bot || !message.guild || !message.member) return;
 
   const config = getConfig(message.guild.id);
-
   const args = message.content.trim().split(/\s+/);
   const comando = args[0].toLowerCase();
 
-  const isAdmin =
-    message.member.permissions.has(
-      PermissionFlagsBits.Administrator
-    );
+  const isAdmin = message.member.permissions.has(
+    PermissionFlagsBits.Administrator
+  );
 
-  // NUX
   if (comando === "!nux") {
     return message.reply("Nux online! 🤖");
   }
 
-  // COMANDOS ADM
   const comandosAdm = [
     "!aviso",
     "!boasvindas",
@@ -153,151 +116,91 @@ client.on("messageCreate", async (message) => {
   ];
 
   if (comandosAdm.includes(comando) && !isAdmin) {
-    return message.reply(
-      "❌ Você não possui permissão."
-    );
+    return message.reply("❌ Este comando é restrito a administradores.");
   }
 
-  // AVISO
   if (comando === "!aviso") {
     const aviso = args.slice(1).join(" ");
 
     if (!aviso) {
-      return message.reply(
-        "Digite a mensagem do aviso."
-      );
+      return message.reply("Use: `!aviso sua mensagem aqui`");
     }
 
     const membros = await message.guild.members.fetch();
 
-    message.reply(
-      `📤 Enviando aviso para ${membros.size} membros...`
-    );
+    message.reply(`📤 Enviando aviso para ${membros.size} membros...`);
 
     for (const [, membro] of membros) {
       if (membro.user.bot) continue;
 
       try {
-        await membro.send(
-          `📢 Aviso de ${message.guild.name}\n\n${aviso}`
-        );
-
-        await new Promise((resolve) =>
-          setTimeout(resolve, 500)
-        );
-      } catch {}
+        await membro.send(`📢 **Aviso de ${message.guild.name}**\n\n${aviso}`);
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      } catch (err) {}
     }
 
-    message.channel.send(
-      "✅ Avisos enviados."
-    );
-
-    return;
+    return message.channel.send("✅ Avisos processados.");
   }
 
-  // BOAS VINDAS
   if (comando === "!boasvindas") {
     const novaMsg = args.slice(1).join(" ");
 
     if (!novaMsg) {
-      return message.reply(
-        "Use: !boasvindas Bem vindo {user}"
-      );
+      return message.reply("Use: `!boasvindas Bem-vindo(a) {user}!`");
     }
 
-    config.canalBoasVindas =
-      message.channel.id;
-
+    config.canalBoasVindas = message.channel.id;
     config.msgBoasVindas = novaMsg;
-
     salvarConfigs();
 
-    return message.reply(
-      "✅ Boas-vindas configuradas."
-    );
+    return message.reply("✅ Boas-vindas configuradas neste canal.");
   }
 
-  // CARGO IMUNE
   if (comando === "!cargoimune") {
-    const cargoId =
-      args[1]?.replace(/[<@&>]/g, "");
+    const cargoId = args[1]?.replace(/[<@&>]/g, "");
 
     if (!cargoId) {
-      return message.reply(
-        "Informe o ID do cargo."
-      );
+      return message.reply("Mencione o cargo ou cole o ID.");
     }
 
     config.cargoImune = cargoId;
-
     salvarConfigs();
 
-    return message.reply(
-      "✅ Cargo imune salvo."
-    );
+    return message.reply("✅ Cargo imune ao antspam salvo.");
   }
 
-  // ANTSPAM
-  if (
-    comando === "!antspam" &&
-    args[1] === "aqui"
-  ) {
-    config.canalAntspam =
-      message.channel.id;
-
+  if (comando === "!antspam" && args[1] === "aqui") {
+    config.canalAntspam = message.channel.id;
     salvarConfigs();
 
-    return message.reply(
-      "✅ Canal antspam configurado."
-    );
+    return message.reply("✅ Canal antspam configurado aqui.");
   }
 
-  // BOOST
-  if (
-    comando === "!boost" &&
-    args[1] === "aqui"
-  ) {
-    config.canalBoost =
-      message.channel.id;
-
+  if (comando === "!boost" && args[1] === "aqui") {
+    config.canalBoost = message.channel.id;
     salvarConfigs();
 
-    return message.reply(
-      "✅ Canal de boost configurado."
-    );
+    return message.reply("✅ Canal de boost configurado aqui.");
   }
 
-  // CARGO TICKET
   if (comando === "!cargoticket") {
-    const cargoId =
-      args[1]?.replace(/[<@&>]/g, "");
+    const cargoId = args[1]?.replace(/[<@&>]/g, "");
 
     if (!cargoId) {
-      return message.reply(
-        "Informe o ID do cargo."
-      );
+      return message.reply("Mencione o cargo de suporte ou cole o ID.");
     }
 
     config.cargoTicket = cargoId;
-
     salvarConfigs();
 
-    return message.reply(
-      "✅ Cargo do ticket salvo."
-    );
+    return message.reply("✅ Cargo de suporte do ticket salvo.");
   }
 
-  // PAINEL TICKET
-  if (
-    comando === "!ticket" &&
-    args[1] === "aqui"
-  ) {
+  if (comando === "!ticket" && args[1] === "aqui") {
     const embed = new EmbedBuilder()
       .setColor("#b20710")
       .setTitle("🎫 Central de Suporte")
-      .setDescription(
-        "Clique no botão abaixo para abrir um ticket."
-      );
+      .setDescription("Clique no botão abaixo para abrir um ticket privado.");
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -312,19 +215,10 @@ client.on("messageCreate", async (message) => {
     });
   }
 
-  // ANTSPAM LOGICA
-  if (
-    config.canalAntspam &&
-    message.channel.id === config.canalAntspam
-  ) {
+  if (config.canalAntspam && message.channel.id === config.canalAntspam) {
     const imune =
       isAdmin ||
-      (
-        config.cargoImune &&
-        message.member.roles.cache.has(
-          config.cargoImune
-        )
-      );
+      (config.cargoImune && message.member.roles.cache.has(config.cargoImune));
 
     if (imune) return;
 
@@ -343,9 +237,9 @@ client.on("messageCreate", async (message) => {
   }
 });
 
-// BOTÃO TICKET
 client.on("interactionCreate", async (interaction) => {
   if (!interaction.isButton()) return;
+  if (!interaction.guild) return;
 
   const config = getConfig(interaction.guild.id);
 
@@ -355,7 +249,6 @@ client.on("interactionCreate", async (interaction) => {
         id: interaction.guild.id,
         deny: [PermissionFlagsBits.ViewChannel]
       },
-
       {
         id: interaction.user.id,
         allow: [
@@ -377,36 +270,31 @@ client.on("interactionCreate", async (interaction) => {
     }
 
     try {
-      const canal =
-        await interaction.guild.channels.create({
-          name: `ticket-${interaction.user.username}`,
-          type: ChannelType.GuildText,
-          permissionOverwrites: permissoes
-        });
+      const canal = await interaction.guild.channels.create({
+        name: `ticket-${interaction.user.username}`,
+        type: ChannelType.GuildText,
+        permissionOverwrites: permissoes
+      });
 
       await interaction.reply({
-        content: `✅ Ticket criado: ${canal}`,
+        content: `✅ Seu ticket foi aberto em: ${canal}`,
         ephemeral: true
       });
 
-      canal.send(
-        `🎫 Olá ${interaction.user}, aguarde atendimento.\n${
-          config.cargoTicket
-            ? `<@&${config.cargoTicket}>`
-            : ""
+      canal.send({
+        content: `🎫 Olá ${interaction.user}, descreva seu problema.\n${
+          config.cargoTicket ? `<@&${config.cargoTicket}>` : ""
         }`
-      );
+      });
     } catch (err) {
-      console.log(err);
+      console.error("Erro ao criar ticket:", err);
 
       interaction.reply({
-        content:
-          "❌ Não consegui criar o ticket.",
+        content: "❌ Falha ao criar o ticket. Verifique as permissões do bot.",
         ephemeral: true
       });
     }
   }
 });
 
-// TOKEN BOT
-client.login("COLE_SEU_TOKEN_AQUI");
+client.login(process.env.TOKEN);
