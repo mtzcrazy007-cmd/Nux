@@ -1,13 +1,14 @@
 const {
   Client,
   GatewayIntentBits,
-  ButtonBuilder,
-  ActionRowBuilder,
-  ButtonStyle,
-  ChannelType,
   PermissionFlagsBits,
-  EmbedBuilder
+  EmbedBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ChannelType
 } = require("discord.js");
+const fs = require("fs");
 
 const client = new Client({
   intents: [
@@ -18,210 +19,183 @@ const client = new Client({
   ]
 });
 
-// CONFIGURAÇÕES
-const CANAL_PROIBIDO = "1497952527658782750";
-const CARGO_IMUNE_ID = "669228551001866259";
 const TEMPO_CASTIGO = 7 * 24 * 60 * 60 * 1000;
+let configs = {};
 
-const CANAL_PAINEL_TICKET = "1499178605434114260";
-const STAFF_ROLE_ID = "669228551001866259";
-const CANAL_BOOST_ID = "1501756403415646288";
+// Carregar configurações do arquivo JSON
+if (fs.existsSync("./configs.json")) {
+  configs = JSON.parse(fs.readFileSync("./configs.json", "utf-8"));
+}
 
-// BOT ONLINE + PAINEL DE TICKET
-client.once("ready", async () => {
-  console.log(`✅ Bot online como ${client.user.tag}`);
+function salvarConfigs() {
+  fs.writeFileSync("./configs.json", JSON.stringify(configs, null, 2));
+}
 
-  const canal = await client.channels.fetch(CANAL_PAINEL_TICKET).catch(() => null);
-  if (!canal) return console.log("❌ Canal do painel não encontrado.");
-
-  const botao = new ButtonBuilder()
-    .setCustomId("abrir_ticket")
-    .setLabel("Abrir Ticket")
-    .setEmoji("🎫")
-    .setStyle(ButtonStyle.Primary);
-
-  const row = new ActionRowBuilder().addComponents(botao);
-
-  try {
-    const mensagens = await canal.messages.fetch({ limit: 10 });
-
-    const painelExiste = mensagens.find(
-      m => m.author.id === client.user.id && m.components.length > 0
-    );
-
-    if (!painelExiste) {
-      await canal.send({
-        content: `🎫 **CENTRAL DE ATENDIMENTO — F7 NUX**
-
-Clique no botão abaixo para abrir um ticket privado com a equipe.`,
-        components: [row]
-      });
-
-      console.log("🎫 Painel de ticket enviado.");
-    } else {
-      console.log("🎫 Painel de ticket já existe.");
-    }
-  } catch (error) {
-    console.log("Erro ao verificar/enviar painel de ticket:", error);
+function getConfig(guildId) {
+  if (!configs[guildId]) {
+    configs[guildId] = {
+      canalAntspam: null,
+      cargoImune: null,
+      canalBoasVindas: null,
+      msgBoasVindas: "Bem-vindo(a) {user}!",
+      canalBoost: null,
+      cargoTicket: null
+    };
   }
+  return configs[guildId];
+}
+
+client.once("ready", () => {
+  console.log(`✅ Bot online como ${client.user.tag}`);
 });
 
-// BOAS-VINDAS
+// EVENTO DE BOAS-VINDAS PERSONALIZADO
 client.on("guildMemberAdd", async (member) => {
-  member.send(`🔥 **SEJA MUITO BEM VINDO AO F7 NUX** 🔥`).catch(() => {});
+  const config = getConfig(member.guild.id);
+  if (!config.canalBoasVindas) return;
+
+  const canal = member.guild.channels.cache.get(config.canalBoasVindas);
+  if (!canal) return;
+
+  // Substitui {user} pela menção do membro
+  const mensagemFinal = config.msgBoasVindas.replace("{user}", `${member}`);
+  
+  canal.send(mensagemFinal).catch(() => {});
 });
 
-// DETECTOR DE BOOST
+// EVENTO DE BOOST
 client.on("guildMemberUpdate", async (oldMember, newMember) => {
   if (!oldMember.premiumSince && newMember.premiumSince) {
-    const canal = await client.channels.fetch(CANAL_BOOST_ID).catch(() => null);
+    const config = getConfig(newMember.guild.id);
+    if (!config.canalBoost) return;
+
+    const canal = newMember.guild.channels.cache.get(config.canalBoost);
     if (!canal) return;
 
     const embed = new EmbedBuilder()
       .setColor("#b20710")
       .setTitle("🚀 Novo Booster!")
-      .setDescription(`${newMember} acabou de impulsionar o servidor!
-
-Muito obrigado por apoiar o **F7 NUX** ❤️`)
-      .setThumbnail(newMember.user.displayAvatarURL({ dynamic: true, size: 512 }))
-      .setFooter({ text: "Obrigado pelo apoio ❤️" })
+      .setDescription(`${newMember} impulsionou o servidor!\n\nObrigado por apoiar!`)
+      .setThumbnail(newMember.user.displayAvatarURL({ dynamic: true }))
       .setTimestamp();
 
-    await canal.send({
-      content: `🎉 Obrigado pelo boost, ${newMember}!`,
-      embeds: [embed]
-    }).catch(() => {});
+    canal.send({ content: `🎉 Obrigado, ${newMember}!`, embeds: [embed] }).catch(() => {});
   }
 });
 
-// INTERAÇÕES DOS TICKETS
-client.on("interactionCreate", async (interaction) => {
-  if (!interaction.isButton()) return;
-
-  if (interaction.customId === "abrir_ticket") {
-    const nomeCanal = `ticket-${interaction.user.id}`;
-
-    const canalExiste = interaction.guild.channels.cache.find(
-      c => c.name === nomeCanal
-    );
-
-    if (canalExiste) {
-      return interaction.reply({
-        content: `❌ Você já possui um ticket aberto: ${canalExiste}`,
-        ephemeral: true
-      });
-    }
-
-    const ticketChannel = await interaction.guild.channels.create({
-      name: nomeCanal,
-      type: ChannelType.GuildText,
-      permissionOverwrites: [
-        {
-          id: interaction.guild.id,
-          deny: [PermissionFlagsBits.ViewChannel]
-        },
-        {
-          id: interaction.user.id,
-          allow: [
-            PermissionFlagsBits.ViewChannel,
-            PermissionFlagsBits.SendMessages,
-            PermissionFlagsBits.AttachFiles,
-            PermissionFlagsBits.ReadMessageHistory
-          ]
-        },
-        {
-          id: STAFF_ROLE_ID,
-          allow: [
-            PermissionFlagsBits.ViewChannel,
-            PermissionFlagsBits.SendMessages,
-            PermissionFlagsBits.AttachFiles,
-            PermissionFlagsBits.ReadMessageHistory
-          ]
-        }
-      ]
-    });
-
-    const fechar = new ButtonBuilder()
-      .setCustomId("fechar_ticket")
-      .setLabel("Fechar Ticket")
-      .setEmoji("🔒")
-      .setStyle(ButtonStyle.Danger);
-
-    const rowFechar = new ActionRowBuilder().addComponents(fechar);
-
-    await ticketChannel.send({
-      content: `👋 Olá ${interaction.user}, descreva sua dúvida ou problema.
-
-A equipe **F7 NUX** entrará em contato em breve.`,
-      components: [rowFechar]
-    });
-
-    return interaction.reply({
-      content: `✅ Seu ticket foi criado: ${ticketChannel}`,
-      ephemeral: true
-    });
-  }
-
-  if (interaction.customId === "fechar_ticket") {
-    await interaction.reply("🔒 Este ticket será fechado em 5 segundos...");
-
-    setTimeout(() => {
-      interaction.channel.delete().catch(() => {});
-    }, 5000);
-  }
-});
-
-// COMANDOS E MODERAÇÃO
 client.on("messageCreate", async (message) => {
   if (message.author.bot || !message.guild || !message.member) return;
 
-  if (message.content.toLowerCase() === "!nux") {
-    return message.reply("Nux está online 🔥");
-  }
+  const config = getConfig(message.guild.id);
+  const args = message.content.split(" ");
+  const comando = args[0].toLowerCase();
 
-  if (message.content.toLowerCase().startsWith("!limpar")) {
-    if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
-      return message.reply("❌ Você não tem permissão.");
-    }
+  // COMANDO !AVISO (DM PARA TODOS)
+  if (comando === "!aviso") {
+    if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) return;
+    
+    const aviso = args.slice(1).join(" ");
+    if (!aviso) return message.reply("Digite a mensagem de aviso. Ex: `!aviso Reunião hoje às 20h`.");
 
-    const quantidade = parseInt(message.content.split(" ")[1]);
+    const membros = await message.guild.members.fetch();
+    let contagem = 0;
 
-    if (!quantidade || quantidade < 1 || quantidade > 100) {
-      return message.reply("Use: `!limpar 1-100`.");
-    }
+    message.reply(`📤 Enviando aviso para ${membros.size} membros...`);
 
-    await message.channel.bulkDelete(quantidade, true).catch(() => {
-      return message.reply("Erro ao limpar mensagens.");
+    membros.forEach(membro => {
+      if (membro.user.bot) return;
+      membro.send(`📢 **Aviso de ${message.guild.name}**:\n\n${aviso}`)
+        .then(() => contagem++)
+        .catch(() => {}); // Ignora DMs fechadas
     });
 
-    const msg = await message.channel.send(`🧹 Apaguei ${quantidade} mensagens.`);
-    setTimeout(() => msg.delete().catch(() => {}), 3000);
     return;
   }
 
-  if (message.channel.id === CANAL_PROIBIDO) {
-    const imune =
-      message.member.roles.cache.has(CARGO_IMUNE_ID) ||
-      message.member.permissions.has(PermissionFlagsBits.Administrator);
+  // CONFIGURAR MENSAGEM DE BOAS-VINDAS
+  if (comando === "!boasvindas") {
+    if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) return;
+    
+    const novaMsg = args.slice(1).join(" ");
+    if (!novaMsg) return message.reply("Use: `!boasvindas Bem vindo {user} ao servidor!`");
 
+    config.canalBoasVindas = message.channel.id;
+    config.msgBoasVindas = novaMsg;
+    salvarConfigs();
+
+    return message.reply(`✅ Mensagem de boas-vindas definida para este canal:\n"${novaMsg}"`);
+  }
+
+  // COMANDOS DE CONFIGURAÇÃO RESTANTES
+  if (comando === "!cargoimune") {
+    const cargoId = args[1]?.replace(/[<@&>]/g, "");
+    if (!cargoId) return message.reply("Informe o ID do cargo.");
+    config.cargoImune = cargoId;
+    salvarConfigs();
+    return message.reply("✅ Cargo imune salvo.");
+  }
+
+  if (comando === "!antspam" && args[1] === "aqui") {
+    config.canalAntspam = message.channel.id;
+    salvarConfigs();
+    return message.reply("✅ Canal Antspam definido.");
+  }
+
+  if (comando === "!boost" && args[1] === "aqui") {
+    config.canalBoost = message.channel.id;
+    salvarConfigs();
+    return message.reply("✅ Canal de Boost definido.");
+  }
+
+  if (comando === "!cargoticket") {
+    const cargoId = args[1]?.replace(/[<@&>]/g, "");
+    config.cargoTicket = cargoId;
+    salvarConfigs();
+    return message.reply("✅ Cargo do ticket salvo.");
+  }
+
+  if (comando === "!ticket" && args[1] === "aqui") {
+    const embed = new EmbedBuilder()
+      .setColor("#b20710")
+      .setTitle("🎫 Suporte")
+      .setDescription("Clique abaixo para abrir um ticket.");
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("abrir_ticket").setLabel("Abrir Ticket").setStyle(ButtonStyle.Danger)
+    );
+    return message.channel.send({ embeds: [embed], components: [row] });
+  }
+
+  // LOGICA ANTSPAM
+  if (config.canalAntspam && message.channel.id === config.canalAntspam) {
+    const imune = message.member.permissions.has(PermissionFlagsBits.Administrator) || 
+                  (config.cargoImune && message.member.roles.cache.has(config.cargoImune));
     if (imune) return;
 
-    try {
-      await message.delete();
-
-      if (message.member.moderatable) {
-        await message.member.timeout(
-          TEMPO_CASTIGO,
-          "Falou no canal proibido"
-        );
-
-        await message.channel.send(
-          `🚫 ${message.author} recebeu castigo de 7 dias por falar aqui.`
-        );
-      }
-    } catch (error) {
-      console.error("Erro ao punir:", error);
+    await message.delete().catch(() => {});
+    if (message.member.moderatable) {
+      await message.member.timeout(TEMPO_CASTIGO, "Falou no canal proibido");
+      message.channel.send(`🚫 ${message.author} foi castigado por 7 dias.`);
     }
+  }
+});
+
+// INTERAÇÃO DO TICKET
+client.on("interactionCreate", async (interaction) => {
+  if (!interaction.isButton()) return;
+  const config = getConfig(interaction.guild.id);
+
+  if (interaction.customId === "abrir_ticket") {
+    const canal = await interaction.guild.channels.create({
+      name: `ticket-${interaction.user.id}`,
+      type: ChannelType.GuildText,
+      permissionOverwrites: [
+        { id: interaction.guild.id, deny: [PermissionFlagsBits.ViewChannel] },
+        { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
+        { id: config.cargoTicket, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
+      ]
+    });
+    interaction.reply({ content: `Ticket aberto: ${canal}`, ephemeral: true });
+    canal.send({ content: `🎫 Atendimento iniciado para ${interaction.user}.` });
   }
 });
 
