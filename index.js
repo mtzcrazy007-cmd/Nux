@@ -320,46 +320,55 @@ client.on("messageCreate", async (message) => {
   }
 
   // !limpar
-  if (comando === "!limpar") {
+if (comando === "!limpar") {
 
-    const quantidade = parseInt(args[1]);
+  const quantidade = parseInt(args[1]);
 
-    if (!quantidade || quantidade < 1 || quantidade > 100) {
-      return message.reply("Use: `!limpar 1 até 100`");
-    }
-
-    if (!message.guild.members.me.permissions.has(PermissionFlagsBits.ManageMessages)) {
-      return message.reply("❌ Preciso da permissão GERENCIAR MENSAGENS.");
-    }
-
-    try {
-
-      await message.delete().catch(() => {});
-
-      const apagadas = await message.channel.bulkDelete(
-        quantidade,
-        true
-      );
-
-      const msg = await message.channel.send(
-        `✅ ${apagadas.size} mensagens apagadas.`
-      );
-
-      setTimeout(() => {
-        msg.delete().catch(() => {});
-      }, 5000);
-
-    } catch (err) {
-
-      console.log("Erro !limpar:", err);
-
-      return message.channel.send(
-        "❌ Não consegui apagar as mensagens.\nMensagens com mais de 14 dias não podem ser apagadas."
-      );
-    }
-
-    return;
+  if (isNaN(quantidade)) {
+    return message.reply("❌ Use: `!limpar quantidade`");
   }
+
+  if (quantidade < 1 || quantidade > 100) {
+    return message.reply("❌ Escolha um número entre 1 e 100.");
+  }
+
+  try {
+
+    // apaga a mensagem do comando
+    await message.delete().catch(() => {});
+
+    // pega mensagens recentes
+    const mensagens = await message.channel.messages.fetch({
+      limit: quantidade
+    });
+
+    // filtra mensagens menores de 14 dias
+    const recentes = mensagens.filter(msg => {
+      return Date.now() - msg.createdTimestamp < 1209600000;
+    });
+
+    // apaga mensagens
+    await message.channel.bulkDelete(recentes, true);
+
+    const aviso = await message.channel.send(
+      `✅ ${recentes.size} mensagens apagadas.`
+    );
+
+    setTimeout(() => {
+      aviso.delete().catch(() => {});
+    }, 4000);
+
+  } catch (err) {
+
+    console.log("Erro no !limpar:", err);
+
+    return message.channel.send(
+      "❌ Não consegui apagar as mensagens."
+    );
+  }
+
+  return;
+}
 
   // !boasvindas
   if (comando === "!boasvindas") {
