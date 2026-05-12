@@ -103,28 +103,14 @@ setInterval(async () => {
     if (!config.canalAviso || !config.avisosAuto.length) continue;
 
     const guild = client.guilds.cache.get(guildId);
-    if (!guild) {
-      console.log("❌ Servidor não encontrado no cache.");
-      continue;
-    }
+    if (!guild) continue;
 
     const canal = guild.channels.cache.get(config.canalAviso);
-    if (!canal) {
-      console.log("❌ Canal de aviso não encontrado.");
-      continue;
-    }
+    if (!canal) continue;
 
     for (const aviso of config.avisosAuto) {
-      console.log(`📌 Comparando aviso ${aviso.hora} com horário atual ${horaAtual}`);
-
       if (aviso.hora === horaAtual && aviso.ultimoEnvio !== dataAtual) {
-        await canal.send(aviso.mensagem)
-          .then(() => {
-            console.log(`✅ Aviso automático enviado às ${aviso.hora}`);
-          })
-          .catch((err) => {
-            console.log("❌ Erro ao enviar aviso automático:", err.message);
-          });
+        await canal.send(aviso.mensagem).catch(() => {});
 
         aviso.ultimoEnvio = dataAtual;
         salvarConfigs();
@@ -203,7 +189,7 @@ client.on("messageCreate", async (message) => {
         ).catch(() => {});
 
         const aviso = await message.channel.send(
-          `🚫 ${message.author} foi castigado por **7 dias** por enviar mensagem neste canal.`
+          `🚫 ${message.author} foi castigado por 7 dias por enviar mensagem neste canal.`
         ).catch(() => null);
 
         if (aviso) {
@@ -237,13 +223,13 @@ client.on("messageCreate", async (message) => {
       return message.reply("Não estou em nenhum servidor.");
     }
 
-    return message.reply(`📋 **Servidores onde estou:**\n\`\`\`\n${lista}\n\`\`\``);
+    return message.reply(`📋 Servidores:\n\`\`\`\n${lista}\n\`\`\``);
   }
 
-  // SAIR DE SERVIDOR PELO ID
+  // SAIR DE SERVIDOR
   if (comando === "!sairid") {
     if (message.author.id !== DONO_ID) {
-      return message.reply("❌ Você não tem permissão para usar este comando.");
+      return message.reply("❌ Você não tem permissão.");
     }
 
     const guildId = args[1];
@@ -262,11 +248,10 @@ client.on("messageCreate", async (message) => {
 
     await guild.leave();
 
-    return message.reply(`✅ Saí do servidor: **${nomeServidor}**`);
+    return message.reply(`✅ Saí do servidor: ${nomeServidor}`);
   }
 
   const comandosAdm = [
-    "!aviso",
     "!limpar",
     "!comandos",
     "!boasvindas",
@@ -285,49 +270,43 @@ client.on("messageCreate", async (message) => {
     return message.reply("❌ Apenas administradores podem usar este comando.");
   }
 
-  // !comandos
+  // COMANDOS
   if (comando === "!comandos") {
     const embed = new EmbedBuilder()
       .setColor("#b20710")
       .setTitle("🤖 Comandos do Bot")
-      .setDescription(
-        `
-📢 **GERAL**
+      .setDescription(`
+📢 GERAL
 \`!nux\`
 \`!comandos\`
 
-👑 **DONO DO BOT**
+👑 DONO
 \`!listservers\`
-\`!sairid ID_DO_SERVIDOR\`
+\`!sairid ID\`
 
-🧹 **MODERAÇÃO**
+🧹 MODERAÇÃO
 \`!limpar quantidade\`
-\`!aviso mensagem\`
 
-🚫 **ANTSPAM**
+🚫 ANTSPAM
 \`!antspam aqui\`
-\`!cargoimune ID ou @cargo\`
+\`!cargoimune ID\`
 
-👋 **BOAS-VINDAS**
+👋 BOAS-VINDAS
 \`!boasvindas mensagem\`
 
-🚀 **BOOST**
+🚀 BOOST
 \`!boost aqui\`
 
-🎫 **TICKETS**
+🎫 TICKETS
 \`!ticket aqui\`
-\`!cargoticket ID ou @cargo\`
+\`!cargoticket ID\`
 
-⏰ **AVISOS AUTOMÁTICOS**
+⏰ AVISOS AUTOMÁTICOS
 \`!canalaviso aqui\`
 \`!avisoauto HH:MM mensagem\`
 \`!avisosauto\`
 \`!removeravisoauto número\`
-        `
-      )
-      .setFooter({
-        text: `${message.guild.name} • Sistema Nux`
-      })
+      `)
       .setTimestamp();
 
     return message.channel.send({
@@ -335,7 +314,7 @@ client.on("messageCreate", async (message) => {
     });
   }
 
-  // !limpar quantidade
+  // LIMPAR
   if (comando === "!limpar") {
     const quantidade = parseInt(args[1]);
 
@@ -344,7 +323,7 @@ client.on("messageCreate", async (message) => {
     }
 
     await message.channel.bulkDelete(quantidade, true).catch(() => {
-      return message.reply("❌ Não consegui apagar as mensagens. Verifique minhas permissões.");
+      return message.reply("❌ Não consegui apagar.");
     });
 
     const msg = await message.channel.send(`✅ ${quantidade} mensagens apagadas.`);
@@ -352,51 +331,31 @@ client.on("messageCreate", async (message) => {
     return;
   }
 
-  // !aviso mensagem
-  if (comando === "!aviso") {
-    const aviso = args.slice(1).join(" ");
-    if (!aviso) return message.reply("Use: `!aviso sua mensagem`");
-
-    const membros = await message.guild.members.fetch();
-    const humanos = membros.filter(m => !m.user.bot);
-
-    message.reply(`📤 Enviando aviso para ${humanos.size} membros...`);
-
-    for (const [, membro] of humanos) {
-      try {
-        await membro.send(`📢 **Aviso de ${message.guild.name}**\n\n${aviso}`);
-        await new Promise(r => setTimeout(r, 1000));
-      } catch {}
-    }
-
-    return message.channel.send("✅ Processo de avisos finalizado.");
-  }
-
-  // !canalaviso aqui
+  // CANAL AVISO
   if (comando === "!canalaviso") {
     if (args[1] !== "aqui") return message.reply("Use: `!canalaviso aqui`");
 
     config.canalAviso = message.channel.id;
     salvarConfigs();
 
-    return message.reply("✅ Canal de avisos automáticos configurado aqui.");
+    return message.reply("✅ Canal de avisos configurado.");
   }
 
-  // !avisoauto HH:MM mensagem
+  // AVISO AUTO
   if (comando === "!avisoauto") {
     const hora = args[1];
     const mensagem = args.slice(2).join(" ");
 
     if (!hora || !mensagem) {
-      return message.reply("Use: `!avisoauto 14:00 sua mensagem aqui`");
+      return message.reply("Use: `!avisoauto 14:00 mensagem`");
     }
 
     if (!/^\d{2}:\d{2}$/.test(hora)) {
-      return message.reply("❌ Horário inválido. Use assim: `14:00`");
+      return message.reply("❌ Horário inválido.");
     }
 
     if (!config.canalAviso) {
-      return message.reply("❌ Primeiro configure o canal com: `!canalaviso aqui`");
+      return message.reply("❌ Configure primeiro: `!canalaviso aqui`");
     }
 
     config.avisosAuto.push({
@@ -407,13 +366,13 @@ client.on("messageCreate", async (message) => {
 
     salvarConfigs();
 
-    return message.reply(`✅ Aviso automático criado para **${hora}**.`);
+    return message.reply(`✅ Aviso automático criado para ${hora}.`);
   }
 
-  // !avisosauto
+  // LISTAR AVISOS
   if (comando === "!avisosauto") {
     if (!config.avisosAuto.length) {
-      return message.reply("❌ Nenhum aviso automático configurado.");
+      return message.reply("❌ Nenhum aviso automático.");
     }
 
     const lista = config.avisosAuto
@@ -432,7 +391,7 @@ client.on("messageCreate", async (message) => {
     });
   }
 
-  // !removeravisoauto número
+  // REMOVER AVISO
   if (comando === "!removeravisoauto") {
     const numero = parseInt(args[1]);
 
@@ -443,88 +402,95 @@ client.on("messageCreate", async (message) => {
     const index = numero - 1;
 
     if (!config.avisosAuto[index]) {
-      return message.reply("❌ Aviso automático não encontrado.");
+      return message.reply("❌ Aviso não encontrado.");
     }
 
     const removido = config.avisosAuto.splice(index, 1)[0];
     salvarConfigs();
 
-    return message.reply(`✅ Aviso das **${removido.hora}** removido.`);
+    return message.reply(`✅ Aviso das ${removido.hora} removido.`);
   }
 
-  // !boasvindas mensagem
+  // BOAS VINDAS
   if (comando === "!boasvindas") {
     const novaMsg = args.slice(1).join(" ");
+
     if (!novaMsg) {
       return message.reply("Use: `!boasvindas Bem-vindo(a) {user}`");
     }
 
     config.canalBoasVindas = message.channel.id;
     config.msgBoasVindas = novaMsg;
+
     salvarConfigs();
 
-    return message.reply("✅ Canal de boas-vindas configurado aqui!");
+    return message.reply("✅ Boas-vindas configuradas.");
   }
 
-  // !cargoimune ID ou @cargo
+  // CARGO IMUNE
   if (comando === "!cargoimune") {
     const cargoId = args[1]?.replace(/[<@&>]/g, "");
-    if (!cargoId) return message.reply("Use: `!cargoimune ID_DO_CARGO`");
+
+    if (!cargoId) {
+      return message.reply("Use: `!cargoimune ID_DO_CARGO`");
+    }
 
     config.cargoImune = cargoId;
     salvarConfigs();
 
-    return message.reply("✅ Cargo imune ao antspam salvo.");
+    return message.reply("✅ Cargo imune salvo.");
   }
 
-  // !antspam aqui
+  // ANTSPAM
   if (comando === "!antspam") {
-    if (args[1] !== "aqui") return message.reply("Use: `!antspam aqui`");
+    if (args[1] !== "aqui") {
+      return message.reply("Use: `!antspam aqui`");
+    }
 
     config.canalAntspam = message.channel.id;
     salvarConfigs();
 
-    return message.reply("✅ Este canal agora está protegido pelo antspam.");
+    return message.reply("✅ Canal protegido.");
   }
 
-  // !boost aqui
+  // BOOST
   if (comando === "!boost") {
-    if (args[1] !== "aqui") return message.reply("Use: `!boost aqui`");
+    if (args[1] !== "aqui") {
+      return message.reply("Use: `!boost aqui`");
+    }
 
     config.canalBoost = message.channel.id;
     salvarConfigs();
 
-    return message.reply("✅ Mensagens de boost serão enviadas aqui.");
+    return message.reply("✅ Canal de boost configurado.");
   }
 
-  // !cargoticket ID ou @cargo
+  // CARGO TICKET
   if (comando === "!cargoticket") {
     const cargoId = args[1]?.replace(/[<@&>]/g, "");
-    if (!cargoId) return message.reply("Use: `!cargoticket ID_DO_CARGO`");
+
+    if (!cargoId) {
+      return message.reply("Use: `!cargoticket ID_DO_CARGO`");
+    }
 
     config.cargoTicket = cargoId;
     salvarConfigs();
 
-    return message.reply("✅ Cargo do suporte configurado.");
+    return message.reply("✅ Cargo do ticket configurado.");
   }
 
-  // !ticket aqui
+  // TICKET
   if (comando === "!ticket") {
-    if (args[1] !== "aqui") return message.reply("Use: `!ticket aqui`");
+    if (args[1] !== "aqui") {
+      return message.reply("Use: `!ticket aqui`");
+    }
 
     const embed = new EmbedBuilder()
       .setColor("#b20710")
       .setTitle("🎫 Central de Atendimento")
       .setDescription(
-        "Precisa de ajuda? Clique no botão abaixo para abrir um ticket.\n\n" +
-        "📌 **Evite abrir ticket sem necessidade.**\n" +
-        "👥 Nossa equipe irá te atender assim que possível."
+        "Clique no botão abaixo para abrir um ticket."
       )
-      .setThumbnail(message.guild.iconURL({ dynamic: true }))
-      .setFooter({
-        text: `${message.guild.name} • Sistema de Tickets`,
-        iconURL: message.guild.iconURL({ dynamic: true })
-      })
       .setTimestamp();
 
     const row = new ActionRowBuilder().addComponents(
@@ -557,9 +523,7 @@ client.on("interactionCreate", async (interaction) => {
 
     if (ticketExistente) {
       return interaction.reply({
-        content:
-          `⚠️ Você já está com um ticket aberto.\n\n` +
-          `📌 Acesse ${ticketExistente} para continuar seu atendimento com a equipe.`,
+        content: `⚠️ Você já possui um ticket aberto: ${ticketExistente}`,
         ephemeral: true
       });
     }
@@ -603,14 +567,8 @@ client.on("interactionCreate", async (interaction) => {
         .setColor("#b20710")
         .setTitle("🎫 Ticket Aberto")
         .setDescription(
-          `Olá ${interaction.user}, seja bem-vindo(a) ao seu atendimento.\n\n` +
-          "Explique abaixo o motivo do seu chamado com o máximo de detalhes possível.\n\n" +
-          "🔒 Apenas você e a equipe conseguem ver este canal."
+          `Olá ${interaction.user}, explique seu problema abaixo.\n\n🔒 Apenas você e a equipe conseguem ver este canal.`
         )
-        .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
-        .setFooter({
-          text: "Para finalizar, clique no botão de fechar ticket."
-        })
         .setTimestamp();
 
       const fecharRow = new ActionRowBuilder().addComponents(
@@ -622,7 +580,7 @@ client.on("interactionCreate", async (interaction) => {
       );
 
       await interaction.reply({
-        content: `✅ Seu ticket foi criado: ${canal}`,
+        content: `✅ Ticket criado: ${canal}`,
         ephemeral: true
       });
 
@@ -633,12 +591,10 @@ client.on("interactionCreate", async (interaction) => {
         embeds: [embedTicket],
         components: [fecharRow]
       });
-    } catch (err) {
-      console.error(err);
-
+    } catch {
       if (!interaction.replied) {
         await interaction.reply({
-          content: "❌ Erro ao criar o ticket. Verifique as permissões do bot.",
+          content: "❌ Erro ao criar ticket.",
           ephemeral: true
         });
       }
@@ -650,7 +606,7 @@ client.on("interactionCreate", async (interaction) => {
     const embedFechar = new EmbedBuilder()
       .setColor("#2f3136")
       .setTitle("🔒 Ticket Encerrado")
-      .setDescription("Este ticket será fechado em **5 segundos**.")
+      .setDescription("Este ticket será fechado em 5 segundos.")
       .setTimestamp();
 
     await interaction.reply({
@@ -664,7 +620,7 @@ client.on("interactionCreate", async (interaction) => {
 });
 
 if (!process.env.TOKEN) {
-  console.log("❌ TOKEN não encontrado. Coloque o TOKEN nas Variables do Railway.");
+  console.log("❌ TOKEN não encontrado nas Variables do Railway.");
   process.exit(1);
 }
 
