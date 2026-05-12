@@ -26,6 +26,7 @@ const TEMPO_CASTIGO = 7 * 24 * 60 * 60 * 1000;
 let configs = {};
 const usuariosPunidos = new Set();
 
+// CARREGAR CONFIGS
 if (fs.existsSync("./configs.json")) {
   try {
     configs = JSON.parse(fs.readFileSync("./configs.json", "utf8"));
@@ -85,6 +86,7 @@ function dataBrasil() {
   }).format(agora);
 }
 
+// BOT ONLINE
 client.once("ready", () => {
   console.log(`✅ ${client.user.tag} está online!`);
   console.log(`📌 Estou em ${client.guilds.cache.size} servidores.`);
@@ -95,36 +97,21 @@ setInterval(async () => {
   const horaAtual = horaBrasil();
   const dataAtual = dataBrasil();
 
-  console.log(`⏰ Verificando avisos automáticos... ${horaAtual}`);
-
   for (const guildId in configs) {
     const config = getConfig(guildId);
 
     if (!config.canalAviso || !config.avisosAuto.length) continue;
 
     const guild = client.guilds.cache.get(guildId);
-    if (!guild) {
-      console.log("❌ Servidor não encontrado no cache.");
-      continue;
-    }
+    if (!guild) continue;
 
     const canal = guild.channels.cache.get(config.canalAviso);
-    if (!canal) {
-      console.log("❌ Canal de aviso não encontrado.");
-      continue;
-    }
+    if (!canal) continue;
 
     for (const aviso of config.avisosAuto) {
-      console.log(`📌 Comparando aviso ${aviso.hora} com horário atual ${horaAtual}`);
-
       if (aviso.hora === horaAtual && aviso.ultimoEnvio !== dataAtual) {
-        await canal.send(aviso.mensagem)
-          .then(() => {
-            console.log(`✅ Aviso automático enviado às ${aviso.hora}`);
-          })
-          .catch((err) => {
-            console.log("❌ Erro ao enviar aviso automático:", err.message);
-          });
+
+        await canal.send(aviso.mensagem).catch(() => {});
 
         aviso.ultimoEnvio = dataAtual;
         salvarConfigs();
@@ -136,19 +123,23 @@ setInterval(async () => {
 // BOAS-VINDAS
 client.on("guildMemberAdd", async (member) => {
   const config = getConfig(member.guild.id);
+
   if (!config.canalBoasVindas) return;
 
   const canal = member.guild.channels.cache.get(config.canalBoasVindas);
   if (!canal) return;
 
   const mensagem = config.msgBoasVindas.replace("{user}", `${member}`);
+
   canal.send(mensagem).catch(() => {});
 });
 
 // BOOST
 client.on("guildMemberUpdate", async (oldMember, newMember) => {
   if (!oldMember.premiumSince && newMember.premiumSince) {
+
     const config = getConfig(newMember.guild.id);
+
     if (!config.canalBoost) return;
 
     const canal = newMember.guild.channels.cache.get(config.canalBoost);
@@ -173,17 +164,22 @@ client.on("messageCreate", async (message) => {
   if (message.author.bot || !message.guild || !message.member) return;
 
   const config = getConfig(message.guild.id);
+
   const args = message.content.trim().split(/\s+/);
   const comando = args[0]?.toLowerCase();
+
   const isAdmin = message.member.permissions.has(PermissionFlagsBits.Administrator);
 
   // ANTSPAM
   if (config.canalAntspam && message.channel.id === config.canalAntspam) {
+
     const imune =
       isAdmin ||
-      (config.cargoImune && message.member.roles.cache.has(config.cargoImune));
+      (config.cargoImune &&
+      message.member.roles.cache.has(config.cargoImune));
 
     if (!imune) {
+
       const jaEstaPunido =
         message.member.communicationDisabledUntilTimestamp &&
         message.member.communicationDisabledUntilTimestamp > Date.now();
@@ -197,13 +193,14 @@ client.on("messageCreate", async (message) => {
       await message.delete().catch(() => {});
 
       if (message.member.moderatable) {
+
         await message.member.timeout(
           TEMPO_CASTIGO,
-          "Falou em canal proibido/Antspam"
+          "Falou em canal proibido"
         ).catch(() => {});
 
         const aviso = await message.channel.send(
-          `🚫 ${message.author} foi castigado por **7 dias** por enviar mensagem neste canal.`
+          `🚫 ${message.author} foi castigado por 7 dias.`
         ).catch(() => null);
 
         if (aviso) {
@@ -219,31 +216,30 @@ client.on("messageCreate", async (message) => {
     }
   }
 
+  // !nux
   if (comando === "!nux") {
     return message.reply("Nux online! 🤖");
   }
 
-  // LISTAR SERVIDORES
+  // !listservers
   if (comando === "!listservers") {
+
     if (message.author.id !== DONO_ID) {
-      return message.reply("❌ Você não tem permissão para usar este comando.");
+      return message.reply("❌ Sem permissão.");
     }
 
     const lista = client.guilds.cache.map(g =>
       `${g.name} | ${g.id}`
     ).join("\n");
 
-    if (!lista) {
-      return message.reply("Não estou em nenhum servidor.");
-    }
-
-    return message.reply(`📋 **Servidores onde estou:**\n\`\`\`\n${lista}\n\`\`\``);
+    return message.reply(`📋 Servidores:\n\`\`\`\n${lista}\n\`\`\``);
   }
 
-  // SAIR DE SERVIDOR PELO ID
+  // !sairid
   if (comando === "!sairid") {
+
     if (message.author.id !== DONO_ID) {
-      return message.reply("❌ Você não tem permissão para usar este comando.");
+      return message.reply("❌ Sem permissão.");
     }
 
     const guildId = args[1];
@@ -258,15 +254,12 @@ client.on("messageCreate", async (message) => {
       return message.reply("❌ Servidor não encontrado.");
     }
 
-    const nomeServidor = guild.name;
-
     await guild.leave();
 
-    return message.reply(`✅ Saí do servidor: **${nomeServidor}**`);
+    return message.reply(`✅ Saí de ${guild.name}`);
   }
 
   const comandosAdm = [
-    "!aviso",
     "!limpar",
     "!comandos",
     "!boasvindas",
@@ -282,52 +275,43 @@ client.on("messageCreate", async (message) => {
   ];
 
   if (comandosAdm.includes(comando) && !isAdmin) {
-    return message.reply("❌ Apenas administradores podem usar este comando.");
+    return message.reply("❌ Apenas administradores.");
   }
 
   // !comandos
   if (comando === "!comandos") {
+
     const embed = new EmbedBuilder()
       .setColor("#b20710")
-      .setTitle("🤖 Comandos do Bot")
-      .setDescription(
-        `
-📢 **GERAL**
+      .setTitle("🤖 Comandos")
+      .setDescription(`
+📢 GERAL
 \`!nux\`
 \`!comandos\`
 
-👑 **DONO DO BOT**
-\`!listservers\`
-\`!sairid ID_DO_SERVIDOR\`
-
-🧹 **MODERAÇÃO**
+🧹 MODERAÇÃO
 \`!limpar quantidade\`
-\`!aviso mensagem\`
 
-🚫 **ANTSPAM**
+🚫 ANTSPAM
 \`!antspam aqui\`
-\`!cargoimune ID ou @cargo\`
+\`!cargoimune ID\`
 
-👋 **BOAS-VINDAS**
+👋 BOAS-VINDAS
 \`!boasvindas mensagem\`
 
-🚀 **BOOST**
+🚀 BOOST
 \`!boost aqui\`
 
-🎫 **TICKETS**
+🎫 TICKETS
 \`!ticket aqui\`
-\`!cargoticket ID ou @cargo\`
+\`!cargoticket ID\`
 
-⏰ **AVISOS AUTOMÁTICOS**
+⏰ AVISOS
 \`!canalaviso aqui\`
 \`!avisoauto HH:MM mensagem\`
 \`!avisosauto\`
 \`!removeravisoauto número\`
-        `
-      )
-      .setFooter({
-        text: `${message.guild.name} • Sistema Nux`
-      })
+      `)
       .setTimestamp();
 
     return message.channel.send({
@@ -335,196 +319,140 @@ client.on("messageCreate", async (message) => {
     });
   }
 
-  // !limpar quantidade
+  // !limpar
   if (comando === "!limpar") {
+
     const quantidade = parseInt(args[1]);
 
     if (!quantidade || quantidade < 1 || quantidade > 100) {
       return message.reply("Use: `!limpar 1 até 100`");
     }
 
-    await message.channel.bulkDelete(quantidade, true).catch(() => {
-      return message.reply("❌ Não consegui apagar as mensagens. Verifique minhas permissões.");
-    });
+    if (!message.guild.members.me.permissions.has(PermissionFlagsBits.ManageMessages)) {
+      return message.reply("❌ Preciso da permissão GERENCIAR MENSAGENS.");
+    }
 
-    const msg = await message.channel.send(`✅ ${quantidade} mensagens apagadas.`);
-    setTimeout(() => msg.delete().catch(() => {}), 5000);
+    try {
+
+      await message.delete().catch(() => {});
+
+      const apagadas = await message.channel.bulkDelete(
+        quantidade,
+        true
+      );
+
+      const msg = await message.channel.send(
+        `✅ ${apagadas.size} mensagens apagadas.`
+      );
+
+      setTimeout(() => {
+        msg.delete().catch(() => {});
+      }, 5000);
+
+    } catch (err) {
+
+      console.log("Erro !limpar:", err);
+
+      return message.channel.send(
+        "❌ Não consegui apagar as mensagens.\nMensagens com mais de 14 dias não podem ser apagadas."
+      );
+    }
+
     return;
   }
 
-  // !aviso mensagem
-  if (comando === "!aviso") {
-    const aviso = args.slice(1).join(" ");
-    if (!aviso) return message.reply("Use: `!aviso sua mensagem`");
-
-    const membros = await message.guild.members.fetch();
-    const humanos = membros.filter(m => !m.user.bot);
-
-    message.reply(`📤 Enviando aviso para ${humanos.size} membros...`);
-
-    for (const [, membro] of humanos) {
-      try {
-        await membro.send(`📢 **Aviso de ${message.guild.name}**\n\n${aviso}`);
-        await new Promise(r => setTimeout(r, 1000));
-      } catch {}
-    }
-
-    return message.channel.send("✅ Processo de avisos finalizado.");
-  }
-
-  // !canalaviso aqui
-  if (comando === "!canalaviso") {
-    if (args[1] !== "aqui") return message.reply("Use: `!canalaviso aqui`");
-
-    config.canalAviso = message.channel.id;
-    salvarConfigs();
-
-    return message.reply("✅ Canal de avisos automáticos configurado aqui.");
-  }
-
-  // !avisoauto HH:MM mensagem
-  if (comando === "!avisoauto") {
-    const hora = args[1];
-    const mensagem = args.slice(2).join(" ");
-
-    if (!hora || !mensagem) {
-      return message.reply("Use: `!avisoauto 14:00 sua mensagem aqui`");
-    }
-
-    if (!/^\d{2}:\d{2}$/.test(hora)) {
-      return message.reply("❌ Horário inválido. Use assim: `14:00`");
-    }
-
-    if (!config.canalAviso) {
-      return message.reply("❌ Primeiro configure o canal com: `!canalaviso aqui`");
-    }
-
-    config.avisosAuto.push({
-      hora,
-      mensagem,
-      ultimoEnvio: null
-    });
-
-    salvarConfigs();
-
-    return message.reply(`✅ Aviso automático criado para **${hora}**.`);
-  }
-
-  // !avisosauto
-  if (comando === "!avisosauto") {
-    if (!config.avisosAuto.length) {
-      return message.reply("❌ Nenhum aviso automático configurado.");
-    }
-
-    const lista = config.avisosAuto
-      .map((aviso, index) => {
-        return `**${index + 1}.** ${aviso.hora} — ${aviso.mensagem}`;
-      })
-      .join("\n");
-
-    return message.reply({
-      embeds: [
-        new EmbedBuilder()
-          .setColor("#b20710")
-          .setTitle("⏰ Avisos Automáticos")
-          .setDescription(lista)
-      ]
-    });
-  }
-
-  // !removeravisoauto número
-  if (comando === "!removeravisoauto") {
-    const numero = parseInt(args[1]);
-
-    if (!numero) {
-      return message.reply("Use: `!removeravisoauto número`");
-    }
-
-    const index = numero - 1;
-
-    if (!config.avisosAuto[index]) {
-      return message.reply("❌ Aviso automático não encontrado.");
-    }
-
-    const removido = config.avisosAuto.splice(index, 1)[0];
-    salvarConfigs();
-
-    return message.reply(`✅ Aviso das **${removido.hora}** removido.`);
-  }
-
-  // !boasvindas mensagem
+  // !boasvindas
   if (comando === "!boasvindas") {
+
     const novaMsg = args.slice(1).join(" ");
+
     if (!novaMsg) {
-      return message.reply("Use: `!boasvindas Bem-vindo(a) {user}`");
+      return message.reply(
+        "Use: `!boasvindas Bem-vindo(a) {user}`"
+      );
     }
 
     config.canalBoasVindas = message.channel.id;
     config.msgBoasVindas = novaMsg;
+
     salvarConfigs();
 
-    return message.reply("✅ Canal de boas-vindas configurado aqui!");
+    return message.reply("✅ Boas-vindas configuradas.");
   }
 
-  // !cargoimune ID ou @cargo
+  // !cargoimune
   if (comando === "!cargoimune") {
+
     const cargoId = args[1]?.replace(/[<@&>]/g, "");
-    if (!cargoId) return message.reply("Use: `!cargoimune ID_DO_CARGO`");
+
+    if (!cargoId) {
+      return message.reply("Use: `!cargoimune ID_DO_CARGO`");
+    }
 
     config.cargoImune = cargoId;
+
     salvarConfigs();
 
-    return message.reply("✅ Cargo imune ao antspam salvo.");
+    return message.reply("✅ Cargo imune configurado.");
   }
 
-  // !antspam aqui
+  // !antspam
   if (comando === "!antspam") {
-    if (args[1] !== "aqui") return message.reply("Use: `!antspam aqui`");
+
+    if (args[1] !== "aqui") {
+      return message.reply("Use: `!antspam aqui`");
+    }
 
     config.canalAntspam = message.channel.id;
+
     salvarConfigs();
 
-    return message.reply("✅ Este canal agora está protegido pelo antspam.");
+    return message.reply("✅ Canal protegido.");
   }
 
-  // !boost aqui
+  // !boost
   if (comando === "!boost") {
-    if (args[1] !== "aqui") return message.reply("Use: `!boost aqui`");
+
+    if (args[1] !== "aqui") {
+      return message.reply("Use: `!boost aqui`");
+    }
 
     config.canalBoost = message.channel.id;
+
     salvarConfigs();
 
-    return message.reply("✅ Mensagens de boost serão enviadas aqui.");
+    return message.reply("✅ Canal de boost configurado.");
   }
 
-  // !cargoticket ID ou @cargo
+  // !cargoticket
   if (comando === "!cargoticket") {
+
     const cargoId = args[1]?.replace(/[<@&>]/g, "");
-    if (!cargoId) return message.reply("Use: `!cargoticket ID_DO_CARGO`");
+
+    if (!cargoId) {
+      return message.reply("Use: `!cargoticket ID_DO_CARGO`");
+    }
 
     config.cargoTicket = cargoId;
+
     salvarConfigs();
 
-    return message.reply("✅ Cargo do suporte configurado.");
+    return message.reply("✅ Cargo do ticket configurado.");
   }
 
-  // !ticket aqui
+  // !ticket
   if (comando === "!ticket") {
-    if (args[1] !== "aqui") return message.reply("Use: `!ticket aqui`");
+
+    if (args[1] !== "aqui") {
+      return message.reply("Use: `!ticket aqui`");
+    }
 
     const embed = new EmbedBuilder()
       .setColor("#b20710")
       .setTitle("🎫 Central de Atendimento")
       .setDescription(
-        "Precisa de ajuda? Clique no botão abaixo para abrir um ticket.\n\n" +
-        "📌 **Evite abrir ticket sem necessidade.**\n" +
-        "👥 Nossa equipe irá te atender assim que possível."
+        "Clique no botão abaixo para abrir um ticket."
       )
-      .setThumbnail(message.guild.iconURL({ dynamic: true }))
-      .setFooter({
-        text: `${message.guild.name} • Sistema de Tickets`,
-        iconURL: message.guild.iconURL({ dynamic: true })
-      })
       .setTimestamp();
 
     const row = new ActionRowBuilder().addComponents(
@@ -544,6 +472,7 @@ client.on("messageCreate", async (message) => {
 
 // BOTÕES
 client.on("interactionCreate", async (interaction) => {
+
   if (!interaction.isButton()) return;
   if (!interaction.guild) return;
 
@@ -551,15 +480,16 @@ client.on("interactionCreate", async (interaction) => {
 
   // ABRIR TICKET
   if (interaction.customId === "abrir_ticket") {
-    const ticketExistente = interaction.guild.channels.cache.find(c =>
-      c.name === `ticket-${interaction.user.username.toLowerCase()}`
-    );
+
+    const ticketExistente =
+      interaction.guild.channels.cache.find(c =>
+        c.name ===
+        `ticket-${interaction.user.username.toLowerCase()}`
+      );
 
     if (ticketExistente) {
       return interaction.reply({
-        content:
-          `⚠️ Você já está com um ticket aberto.\n\n` +
-          `📌 Acesse ${ticketExistente} para continuar seu atendimento com a equipe.`,
+        content: `⚠️ Você já possui um ticket aberto: ${ticketExistente}`,
         ephemeral: true
       });
     }
@@ -581,6 +511,7 @@ client.on("interactionCreate", async (interaction) => {
     ];
 
     if (config.cargoTicket) {
+
       permissoes.push({
         id: config.cargoTicket,
         allow: [
@@ -593,6 +524,7 @@ client.on("interactionCreate", async (interaction) => {
     }
 
     try {
+
       const canal = await interaction.guild.channels.create({
         name: `ticket-${interaction.user.username}`.toLowerCase(),
         type: ChannelType.GuildText,
@@ -603,17 +535,11 @@ client.on("interactionCreate", async (interaction) => {
         .setColor("#b20710")
         .setTitle("🎫 Ticket Aberto")
         .setDescription(
-          `Olá ${interaction.user}, seja bem-vindo(a) ao seu atendimento.\n\n` +
-          "Explique abaixo o motivo do seu chamado com o máximo de detalhes possível.\n\n" +
-          "🔒 Apenas você e a equipe conseguem ver este canal."
+          `Olá ${interaction.user}, explique seu problema abaixo.`
         )
-        .setThumbnail(interaction.user.displayAvatarURL({ dynamic: true }))
-        .setFooter({
-          text: "Para finalizar, clique no botão de fechar ticket."
-        })
         .setTimestamp();
 
-      const fecharRow = new ActionRowBuilder().addComponents(
+      const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
           .setCustomId("fechar_ticket")
           .setLabel("Fechar Ticket")
@@ -622,39 +548,42 @@ client.on("interactionCreate", async (interaction) => {
       );
 
       await interaction.reply({
-        content: `✅ Seu ticket foi criado: ${canal}`,
+        content: `✅ Ticket criado: ${canal}`,
         ephemeral: true
       });
 
       await canal.send({
         content: `${interaction.user} ${
-          config.cargoTicket ? `<@&${config.cargoTicket}>` : ""
+          config.cargoTicket
+          ? `<@&${config.cargoTicket}>`
+          : ""
         }`,
         embeds: [embedTicket],
-        components: [fecharRow]
+        components: [row]
       });
-    } catch (err) {
-      console.error(err);
 
-      if (!interaction.replied) {
-        await interaction.reply({
-          content: "❌ Erro ao criar o ticket. Verifique as permissões do bot.",
-          ephemeral: true
-        });
-      }
+    } catch (err) {
+
+      console.log(err);
+
+      return interaction.reply({
+        content: "❌ Erro ao criar ticket.",
+        ephemeral: true
+      });
     }
   }
 
   // FECHAR TICKET
   if (interaction.customId === "fechar_ticket") {
-    const embedFechar = new EmbedBuilder()
+
+    const embed = new EmbedBuilder()
       .setColor("#2f3136")
-      .setTitle("🔒 Ticket Encerrado")
-      .setDescription("Este ticket será fechado em **5 segundos**.")
+      .setTitle("🔒 Ticket encerrado")
+      .setDescription("Este ticket será apagado em 5 segundos.")
       .setTimestamp();
 
     await interaction.reply({
-      embeds: [embedFechar]
+      embeds: [embed]
     });
 
     setTimeout(() => {
@@ -663,8 +592,9 @@ client.on("interactionCreate", async (interaction) => {
   }
 });
 
+// TOKEN
 if (!process.env.TOKEN) {
-  console.log("❌ TOKEN não encontrado. Coloque o TOKEN nas Variables do Railway.");
+  console.log("❌ TOKEN não encontrado.");
   process.exit(1);
 }
 
