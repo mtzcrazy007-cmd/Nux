@@ -10,6 +10,6 @@
   },
   "dependencies": {
     "discord.js": "^14.15.3",
-    "openai": "^4.104.0"
+    "@google/generative-ai": "^0.24.1"
   }
 }
