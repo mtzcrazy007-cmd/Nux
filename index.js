@@ -11,6 +11,8 @@ const {
 
 const fs = require("fs");
 
+const DONO_ID = "669163751957725204";
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -85,6 +87,7 @@ function dataBrasil() {
 
 client.once("ready", () => {
   console.log(`✅ ${client.user.tag} está online!`);
+  console.log(`📌 Estou em ${client.guilds.cache.size} servidores.`);
 });
 
 // AVISOS AUTOMÁTICOS
@@ -220,6 +223,48 @@ client.on("messageCreate", async (message) => {
     return message.reply("Nux online! 🤖");
   }
 
+  // LISTAR SERVIDORES
+  if (comando === "!listservers") {
+    if (message.author.id !== DONO_ID) {
+      return message.reply("❌ Você não tem permissão para usar este comando.");
+    }
+
+    const lista = client.guilds.cache.map(g =>
+      `${g.name} | ${g.id}`
+    ).join("\n");
+
+    if (!lista) {
+      return message.reply("Não estou em nenhum servidor.");
+    }
+
+    return message.reply(`📋 **Servidores onde estou:**\n\`\`\`\n${lista}\n\`\`\``);
+  }
+
+  // SAIR DE SERVIDOR PELO ID
+  if (comando === "!sairid") {
+    if (message.author.id !== DONO_ID) {
+      return message.reply("❌ Você não tem permissão para usar este comando.");
+    }
+
+    const guildId = args[1];
+
+    if (!guildId) {
+      return message.reply("Use: `!sairid ID_DO_SERVIDOR`");
+    }
+
+    const guild = client.guilds.cache.get(guildId);
+
+    if (!guild) {
+      return message.reply("❌ Servidor não encontrado.");
+    }
+
+    const nomeServidor = guild.name;
+
+    await guild.leave();
+
+    return message.reply(`✅ Saí do servidor: **${nomeServidor}**`);
+  }
+
   const comandosAdm = [
     "!aviso",
     "!limpar",
@@ -250,6 +295,10 @@ client.on("messageCreate", async (message) => {
 📢 **GERAL**
 \`!nux\`
 \`!comandos\`
+
+👑 **DONO DO BOT**
+\`!listservers\`
+\`!sairid ID_DO_SERVIDOR\`
 
 🧹 **MODERAÇÃO**
 \`!limpar quantidade\`
