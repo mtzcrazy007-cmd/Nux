@@ -93,8 +93,6 @@ setInterval(async () => {
   const horaAtual = horaBrasil();
   const dataAtual = dataBrasil();
 
-  console.log(`⏰ Verificando avisos automáticos... ${horaAtual}`);
-
   for (const guildId in configs) {
     const config = getConfig(guildId);
 
@@ -195,43 +193,30 @@ client.on("messageCreate", async (message) => {
     return message.reply("Nux online! 🤖");
   }
 
-  // LISTAR SERVIDORES
   if (comando === "!listservers") {
     if (message.author.id !== DONO_ID) {
-      return message.reply("❌ Você não tem permissão para usar este comando.");
+      return message.reply("❌ Você não tem permissão.");
     }
 
     const lista = client.guilds.cache.map(g =>
       `${g.name} | ${g.id}`
     ).join("\n");
 
-    if (!lista) {
-      return message.reply("Não estou em nenhum servidor.");
-    }
-
     return message.reply(`📋 Servidores:\n\`\`\`\n${lista}\n\`\`\``);
   }
 
-  // SAIR DE SERVIDOR
   if (comando === "!sairid") {
     if (message.author.id !== DONO_ID) {
       return message.reply("❌ Você não tem permissão.");
     }
 
     const guildId = args[1];
-
-    if (!guildId) {
-      return message.reply("Use: `!sairid ID_DO_SERVIDOR`");
-    }
+    if (!guildId) return message.reply("Use: `!sairid ID_DO_SERVIDOR`");
 
     const guild = client.guilds.cache.get(guildId);
-
-    if (!guild) {
-      return message.reply("❌ Servidor não encontrado.");
-    }
+    if (!guild) return message.reply("❌ Servidor não encontrado.");
 
     const nomeServidor = guild.name;
-
     await guild.leave();
 
     return message.reply(`✅ Saí do servidor: ${nomeServidor}`);
@@ -255,7 +240,6 @@ client.on("messageCreate", async (message) => {
     return message.reply("❌ Apenas administradores podem usar este comando.");
   }
 
-  // COMANDOS
   if (comando === "!comandos") {
     const embed = new EmbedBuilder()
       .setColor("#b20710")
@@ -291,12 +275,9 @@ client.on("messageCreate", async (message) => {
       `)
       .setTimestamp();
 
-    return message.channel.send({
-      embeds: [embed]
-    });
+    return message.channel.send({ embeds: [embed] });
   }
 
-  // LIMPAR
   if (comando === "!limpar") {
     const quantidade = parseInt(args[1]);
 
@@ -313,7 +294,6 @@ client.on("messageCreate", async (message) => {
     return;
   }
 
-  // CANAL AVISO
   if (comando === "!canalaviso") {
     if (args[1] !== "aqui") return message.reply("Use: `!canalaviso aqui`");
 
@@ -323,7 +303,6 @@ client.on("messageCreate", async (message) => {
     return message.reply("✅ Canal de avisos configurado.");
   }
 
-  // AVISO AUTO
   if (comando === "!avisoauto") {
     const hora = args[1];
     const mensagem = args.slice(2).join(" ");
@@ -351,16 +330,13 @@ client.on("messageCreate", async (message) => {
     return message.reply(`✅ Aviso automático criado para ${hora}.`);
   }
 
-  // LISTAR AVISOS
   if (comando === "!avisosauto") {
     if (!config.avisosAuto.length) {
       return message.reply("❌ Nenhum aviso automático.");
     }
 
     const lista = config.avisosAuto
-      .map((aviso, index) => {
-        return `**${index + 1}.** ${aviso.hora} — ${aviso.mensagem}`;
-      })
+      .map((aviso, index) => `**${index + 1}.** ${aviso.hora} — ${aviso.mensagem}`)
       .join("\n");
 
     return message.reply({
@@ -373,19 +349,12 @@ client.on("messageCreate", async (message) => {
     });
   }
 
-  // REMOVER AVISO
   if (comando === "!removeravisoauto") {
     const numero = parseInt(args[1]);
-
-    if (!numero) {
-      return message.reply("Use: `!removeravisoauto número`");
-    }
+    if (!numero) return message.reply("Use: `!removeravisoauto número`");
 
     const index = numero - 1;
-
-    if (!config.avisosAuto[index]) {
-      return message.reply("❌ Aviso não encontrado.");
-    }
+    if (!config.avisosAuto[index]) return message.reply("❌ Aviso não encontrado.");
 
     const removido = config.avisosAuto.splice(index, 1)[0];
     salvarConfigs();
@@ -393,7 +362,6 @@ client.on("messageCreate", async (message) => {
     return message.reply(`✅ Aviso das ${removido.hora} removido.`);
   }
 
-  // CARGO IMUNE
   if (comando === "!cargoimune") {
     const cargoId = args[1]?.replace(/[<@&>]/g, "");
 
@@ -407,11 +375,8 @@ client.on("messageCreate", async (message) => {
     return message.reply("✅ Cargo imune salvo.");
   }
 
-  // ANTSPAM
   if (comando === "!antspam") {
-    if (args[1] !== "aqui") {
-      return message.reply("Use: `!antspam aqui`");
-    }
+    if (args[1] !== "aqui") return message.reply("Use: `!antspam aqui`");
 
     config.canalAntspam = message.channel.id;
     salvarConfigs();
@@ -419,11 +384,8 @@ client.on("messageCreate", async (message) => {
     return message.reply("✅ Canal protegido.");
   }
 
-  // BOOST
   if (comando === "!boost") {
-    if (args[1] !== "aqui") {
-      return message.reply("Use: `!boost aqui`");
-    }
+    if (args[1] !== "aqui") return message.reply("Use: `!boost aqui`");
 
     config.canalBoost = message.channel.id;
     salvarConfigs();
@@ -431,7 +393,6 @@ client.on("messageCreate", async (message) => {
     return message.reply("✅ Canal de boost configurado.");
   }
 
-  // CARGO TICKET
   if (comando === "!cargoticket") {
     const cargoId = args[1]?.replace(/[<@&>]/g, "");
 
@@ -445,18 +406,13 @@ client.on("messageCreate", async (message) => {
     return message.reply("✅ Cargo do ticket configurado.");
   }
 
-  // TICKET
   if (comando === "!ticket") {
-    if (args[1] !== "aqui") {
-      return message.reply("Use: `!ticket aqui`");
-    }
+    if (args[1] !== "aqui") return message.reply("Use: `!ticket aqui`");
 
     const embed = new EmbedBuilder()
       .setColor("#b20710")
       .setTitle("🎫 Central de Atendimento")
-      .setDescription(
-        "Clique no botão abaixo para abrir um ticket."
-      )
+      .setDescription("Clique no botão abaixo para abrir um ticket.")
       .setTimestamp();
 
     const row = new ActionRowBuilder().addComponents(
@@ -473,3 +429,113 @@ client.on("messageCreate", async (message) => {
     });
   }
 });
+
+// BOTÕES
+client.on("interactionCreate", async (interaction) => {
+  if (!interaction.isButton()) return;
+  if (!interaction.guild) return;
+
+  const config = getConfig(interaction.guild.id);
+
+  if (interaction.customId === "abrir_ticket") {
+    const ticketExistente = interaction.guild.channels.cache.find(c =>
+      c.name === `ticket-${interaction.user.username.toLowerCase()}`
+    );
+
+    if (ticketExistente) {
+      return interaction.reply({
+        content: `⚠️ Você já possui um ticket aberto: ${ticketExistente}`,
+        ephemeral: true
+      });
+    }
+
+    const permissoes = [
+      {
+        id: interaction.guild.id,
+        deny: [PermissionFlagsBits.ViewChannel]
+      },
+      {
+        id: interaction.user.id,
+        allow: [
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
+          PermissionFlagsBits.AttachFiles,
+          PermissionFlagsBits.ReadMessageHistory
+        ]
+      }
+    ];
+
+    if (config.cargoTicket) {
+      permissoes.push({
+        id: config.cargoTicket,
+        allow: [
+          PermissionFlagsBits.ViewChannel,
+          PermissionFlagsBits.SendMessages,
+          PermissionFlagsBits.AttachFiles,
+          PermissionFlagsBits.ReadMessageHistory
+        ]
+      });
+    }
+
+    try {
+      const canal = await interaction.guild.channels.create({
+        name: `ticket-${interaction.user.username}`.toLowerCase(),
+        type: ChannelType.GuildText,
+        permissionOverwrites: permissoes
+      });
+
+      const embedTicket = new EmbedBuilder()
+        .setColor("#b20710")
+        .setTitle("🎫 Ticket Aberto")
+        .setDescription(
+          `Olá ${interaction.user}, explique seu problema abaixo.\n\n🔒 Apenas você e a equipe conseguem ver este canal.`
+        )
+        .setTimestamp();
+
+      const fecharRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("fechar_ticket")
+          .setLabel("Fechar Ticket")
+          .setEmoji("🔒")
+          .setStyle(ButtonStyle.Secondary)
+      );
+
+      await interaction.reply({
+        content: `✅ Ticket criado: ${canal}`,
+        ephemeral: true
+      });
+
+      await canal.send({
+        content: `${interaction.user} ${
+          config.cargoTicket ? `<@&${config.cargoTicket}>` : ""
+        }`,
+        embeds: [embedTicket],
+        components: [fecharRow]
+      });
+    } catch (erro) {
+      console.log("Erro ao criar ticket:", erro);
+
+      if (!interaction.replied) {
+        await interaction.reply({
+          content: "❌ Erro ao criar ticket.",
+          ephemeral: true
+        });
+      }
+    }
+  }
+
+  if (interaction.customId === "fechar_ticket") {
+    await interaction.reply("🔒 Ticket será fechado em 5 segundos.");
+
+    setTimeout(() => {
+      interaction.channel.delete().catch(() => {});
+    }, 5000);
+  }
+});
+
+if (!process.env.TOKEN) {
+  console.log("❌ TOKEN não encontrado nas Variables do Railway.");
+  process.exit(1);
+}
+
+client.login(process.env.TOKEN);
