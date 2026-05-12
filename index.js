@@ -1,3 +1,5 @@
+require("dotenv").config();
+
 const {
   Client,
   GatewayIntentBits,
@@ -473,3 +475,12 @@ client.on("messageCreate", async (message) => {
     });
   }
 });
+
+(async () => {
+  try {
+    await client.login(process.env.DISCORD_TOKEN);
+  } catch (error) {
+    console.error("❌ Falha ao fazer login no Discord:", error.message);
+    process.exit(1);
+  }
+})();
