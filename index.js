@@ -87,20 +87,37 @@ setInterval(async () => {
   const horaAtual = horaBrasil();
   const dataAtual = dataBrasil();
 
+  console.log(`⏰ Verificando avisos automáticos... ${horaAtual}`);
+
   for (const guildId in configs) {
     const config = getConfig(guildId);
 
     if (!config.canalAviso || !config.avisosAuto.length) continue;
 
     const guild = client.guilds.cache.get(guildId);
-    if (!guild) continue;
+    if (!guild) {
+      console.log("❌ Servidor não encontrado no cache.");
+      continue;
+    }
 
     const canal = guild.channels.cache.get(config.canalAviso);
-    if (!canal) continue;
+    if (!canal) {
+      console.log("❌ Canal de aviso não encontrado.");
+      continue;
+    }
 
     for (const aviso of config.avisosAuto) {
+      console.log(`📌 Comparando aviso ${aviso.hora} com horário atual ${horaAtual}`);
+
       if (aviso.hora === horaAtual && aviso.ultimoEnvio !== dataAtual) {
-        await canal.send(aviso.mensagem).catch(() => {});
+        await canal.send(aviso.mensagem)
+          .then(() => {
+            console.log(`✅ Aviso automático enviado às ${aviso.hora}`);
+          })
+          .catch((err) => {
+            console.log("❌ Erro ao enviar aviso automático:", err.message);
+          });
+
         aviso.ultimoEnvio = dataAtual;
         salvarConfigs();
       }
@@ -152,7 +169,7 @@ client.on("messageCreate", async (message) => {
   const comando = args[0]?.toLowerCase();
   const isAdmin = message.member.permissions.has(PermissionFlagsBits.Administrator);
 
-  // ANTSPAM MELHORADO
+  // ANTSPAM
   if (config.canalAntspam && message.channel.id === config.canalAntspam) {
     const imune =
       isAdmin ||
@@ -200,6 +217,8 @@ client.on("messageCreate", async (message) => {
 
   const comandosAdm = [
     "!aviso",
+    "!limpar",
+    "!comandos",
     "!boasvindas",
     "!cargoimune",
     "!antspam",
@@ -216,6 +235,70 @@ client.on("messageCreate", async (message) => {
     return message.reply("❌ Apenas administradores podem usar este comando.");
   }
 
+  // !comandos
+  if (comando === "!comandos") {
+    const embed = new EmbedBuilder()
+      .setColor("#b20710")
+      .setTitle("🤖 Comandos do Bot")
+      .setDescription(
+        `
+📢 **GERAL**
+\`!nux\`
+\`!comandos\`
+
+🧹 **MODERAÇÃO**
+\`!limpar quantidade\`
+\`!aviso mensagem\`
+
+🚫 **ANTSPAM**
+\`!antspam aqui\`
+\`!cargoimune ID ou @cargo\`
+
+👋 **BOAS-VINDAS**
+\`!boasvindas mensagem\`
+
+🚀 **BOOST**
+\`!boost aqui\`
+
+🎫 **TICKETS**
+\`!ticket aqui\`
+\`!cargoticket ID ou @cargo\`
+
+⏰ **AVISOS AUTOMÁTICOS**
+\`!canalaviso aqui\`
+\`!avisoauto HH:MM mensagem\`
+\`!avisosauto\`
+\`!removeravisoauto número\`
+        `
+      )
+      .setFooter({
+        text: `${message.guild.name} • Sistema Nux`
+      })
+      .setTimestamp();
+
+    return message.channel.send({
+      embeds: [embed]
+    });
+  }
+
+  // !limpar quantidade
+  if (comando === "!limpar") {
+    const quantidade = parseInt(args[1]);
+
+    if (!quantidade || quantidade < 1 || quantidade > 100) {
+      return message.reply("Use: `!limpar 1 até 100`");
+    }
+
+    await message.channel.bulkDelete(quantidade, true).catch(() => {
+      return message.reply("❌ Não consegui apagar as mensagens. Verifique minhas permissões.");
+    });
+
+    const msg = await message.channel.send(`✅ ${quantidade} mensagens apagadas.`);
+    setTimeout(() => msg.delete().catch(() => {}), 5000);
+    return;
+  }
+
+  // !aviso mensagem
   if (comando === "!aviso") {
     const aviso = args.slice(1).join(" ");
     if (!aviso) return message.reply("Use: `!aviso sua mensagem`");
@@ -235,6 +318,7 @@ client.on("messageCreate", async (message) => {
     return message.channel.send("✅ Processo de avisos finalizado.");
   }
 
+  // !canalaviso aqui
   if (comando === "!canalaviso") {
     if (args[1] !== "aqui") return message.reply("Use: `!canalaviso aqui`");
 
@@ -244,6 +328,7 @@ client.on("messageCreate", async (message) => {
     return message.reply("✅ Canal de avisos automáticos configurado aqui.");
   }
 
+  // !avisoauto HH:MM mensagem
   if (comando === "!avisoauto") {
     const hora = args[1];
     const mensagem = args.slice(2).join(" ");
@@ -271,6 +356,7 @@ client.on("messageCreate", async (message) => {
     return message.reply(`✅ Aviso automático criado para **${hora}**.`);
   }
 
+  // !avisosauto
   if (comando === "!avisosauto") {
     if (!config.avisosAuto.length) {
       return message.reply("❌ Nenhum aviso automático configurado.");
@@ -292,6 +378,7 @@ client.on("messageCreate", async (message) => {
     });
   }
 
+  // !removeravisoauto número
   if (comando === "!removeravisoauto") {
     const numero = parseInt(args[1]);
 
@@ -311,6 +398,7 @@ client.on("messageCreate", async (message) => {
     return message.reply(`✅ Aviso das **${removido.hora}** removido.`);
   }
 
+  // !boasvindas mensagem
   if (comando === "!boasvindas") {
     const novaMsg = args.slice(1).join(" ");
     if (!novaMsg) {
@@ -324,6 +412,7 @@ client.on("messageCreate", async (message) => {
     return message.reply("✅ Canal de boas-vindas configurado aqui!");
   }
 
+  // !cargoimune ID ou @cargo
   if (comando === "!cargoimune") {
     const cargoId = args[1]?.replace(/[<@&>]/g, "");
     if (!cargoId) return message.reply("Use: `!cargoimune ID_DO_CARGO`");
@@ -334,6 +423,7 @@ client.on("messageCreate", async (message) => {
     return message.reply("✅ Cargo imune ao antspam salvo.");
   }
 
+  // !antspam aqui
   if (comando === "!antspam") {
     if (args[1] !== "aqui") return message.reply("Use: `!antspam aqui`");
 
@@ -343,6 +433,7 @@ client.on("messageCreate", async (message) => {
     return message.reply("✅ Este canal agora está protegido pelo antspam.");
   }
 
+  // !boost aqui
   if (comando === "!boost") {
     if (args[1] !== "aqui") return message.reply("Use: `!boost aqui`");
 
@@ -352,6 +443,7 @@ client.on("messageCreate", async (message) => {
     return message.reply("✅ Mensagens de boost serão enviadas aqui.");
   }
 
+  // !cargoticket ID ou @cargo
   if (comando === "!cargoticket") {
     const cargoId = args[1]?.replace(/[<@&>]/g, "");
     if (!cargoId) return message.reply("Use: `!cargoticket ID_DO_CARGO`");
@@ -362,6 +454,7 @@ client.on("messageCreate", async (message) => {
     return message.reply("✅ Cargo do suporte configurado.");
   }
 
+  // !ticket aqui
   if (comando === "!ticket") {
     if (args[1] !== "aqui") return message.reply("Use: `!ticket aqui`");
 
@@ -402,6 +495,7 @@ client.on("interactionCreate", async (interaction) => {
 
   const config = getConfig(interaction.guild.id);
 
+  // ABRIR TICKET
   if (interaction.customId === "abrir_ticket") {
     const ticketExistente = interaction.guild.channels.cache.find(c =>
       c.name === `ticket-${interaction.user.username.toLowerCase()}`
@@ -497,6 +591,7 @@ client.on("interactionCreate", async (interaction) => {
     }
   }
 
+  // FECHAR TICKET
   if (interaction.customId === "fechar_ticket") {
     const embedFechar = new EmbedBuilder()
       .setColor("#2f3136")
