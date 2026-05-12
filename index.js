@@ -44,15 +44,69 @@ function getConfig(guildId) {
       canalBoasVindas: null,
       msgBoasVindas: "Bem-vindo(a) {user}!",
       canalBoost: null,
-      cargoTicket: null
+      cargoTicket: null,
+      canalAviso: null,
+      avisosAuto: []
     };
   }
+
+  if (!configs[guildId].avisosAuto) configs[guildId].avisosAuto = [];
+  if (!("canalAviso" in configs[guildId])) configs[guildId].canalAviso = null;
+
   return configs[guildId];
+}
+
+function horaBrasil() {
+  const agora = new Date();
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false
+  }).format(agora);
+}
+
+function dataBrasil() {
+  const agora = new Date();
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "America/Sao_Paulo",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  }).format(agora);
 }
 
 client.once("ready", () => {
   console.log(`✅ ${client.user.tag} está online!`);
 });
+
+// AVISOS AUTOMÁTICOS
+setInterval(async () => {
+  const horaAtual = horaBrasil();
+  const dataAtual = dataBrasil();
+
+  for (const guildId in configs) {
+    const config = getConfig(guildId);
+
+    if (!config.canalAviso || !config.avisosAuto.length) continue;
+
+    const guild = client.guilds.cache.get(guildId);
+    if (!guild) continue;
+
+    const canal = guild.channels.cache.get(config.canalAviso);
+    if (!canal) continue;
+
+    for (const aviso of config.avisosAuto) {
+      if (aviso.hora === horaAtual && aviso.ultimoEnvio !== dataAtual) {
+        await canal.send(aviso.mensagem).catch(() => {});
+        aviso.ultimoEnvio = dataAtual;
+        salvarConfigs();
+      }
+    }
+  }
+}, 60 * 1000);
 
 // BOAS-VINDAS
 client.on("guildMemberAdd", async (member) => {
@@ -151,7 +205,11 @@ client.on("messageCreate", async (message) => {
     "!antspam",
     "!boost",
     "!cargoticket",
-    "!ticket"
+    "!ticket",
+    "!canalaviso",
+    "!avisoauto",
+    "!avisosauto",
+    "!removeravisoauto"
   ];
 
   if (comandosAdm.includes(comando) && !isAdmin) {
@@ -175,6 +233,82 @@ client.on("messageCreate", async (message) => {
     }
 
     return message.channel.send("✅ Processo de avisos finalizado.");
+  }
+
+  if (comando === "!canalaviso") {
+    if (args[1] !== "aqui") return message.reply("Use: `!canalaviso aqui`");
+
+    config.canalAviso = message.channel.id;
+    salvarConfigs();
+
+    return message.reply("✅ Canal de avisos automáticos configurado aqui.");
+  }
+
+  if (comando === "!avisoauto") {
+    const hora = args[1];
+    const mensagem = args.slice(2).join(" ");
+
+    if (!hora || !mensagem) {
+      return message.reply("Use: `!avisoauto 14:00 sua mensagem aqui`");
+    }
+
+    if (!/^\d{2}:\d{2}$/.test(hora)) {
+      return message.reply("❌ Horário inválido. Use assim: `14:00`");
+    }
+
+    if (!config.canalAviso) {
+      return message.reply("❌ Primeiro configure o canal com: `!canalaviso aqui`");
+    }
+
+    config.avisosAuto.push({
+      hora,
+      mensagem,
+      ultimoEnvio: null
+    });
+
+    salvarConfigs();
+
+    return message.reply(`✅ Aviso automático criado para **${hora}**.`);
+  }
+
+  if (comando === "!avisosauto") {
+    if (!config.avisosAuto.length) {
+      return message.reply("❌ Nenhum aviso automático configurado.");
+    }
+
+    const lista = config.avisosAuto
+      .map((aviso, index) => {
+        return `**${index + 1}.** ${aviso.hora} — ${aviso.mensagem}`;
+      })
+      .join("\n");
+
+    return message.reply({
+      embeds: [
+        new EmbedBuilder()
+          .setColor("#b20710")
+          .setTitle("⏰ Avisos Automáticos")
+          .setDescription(lista)
+      ]
+    });
+  }
+
+  if (comando === "!removeravisoauto") {
+    const numero = parseInt(args[1]);
+
+    if (!numero) {
+      return message.reply("Use: `!removeravisoauto número`");
+    }
+
+    const index = numero - 1;
+
+    if (!config.avisosAuto[index]) {
+      return message.reply("❌ Aviso automático não encontrado.");
+    }
+
+    const removido = config.avisosAuto.splice(index, 1)[0];
+    salvarConfigs();
+
+    return message.reply(`✅ Aviso das **${removido.hora}** removido.`);
   }
 
   if (comando === "!boasvindas") {
@@ -228,7 +362,6 @@ client.on("messageCreate", async (message) => {
     return message.reply("✅ Cargo do suporte configurado.");
   }
 
-  // TICKET BONITO
   if (comando === "!ticket") {
     if (args[1] !== "aqui") return message.reply("Use: `!ticket aqui`");
 
