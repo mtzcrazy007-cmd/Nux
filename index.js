@@ -43,8 +43,6 @@ function getConfig(guildId) {
     configs[guildId] = {
       canalAntspam: null,
       cargoImune: null,
-      canalBoasVindas: null,
-      msgBoasVindas: "Bem-vindo(a) {user}!",
       canalBoost: null,
       cargoTicket: null,
       canalAviso: null,
@@ -118,18 +116,6 @@ setInterval(async () => {
     }
   }
 }, 60 * 1000);
-
-// BOAS-VINDAS
-client.on("guildMemberAdd", async (member) => {
-  const config = getConfig(member.guild.id);
-  if (!config.canalBoasVindas) return;
-
-  const canal = member.guild.channels.cache.get(config.canalBoasVindas);
-  if (!canal) return;
-
-  const mensagem = config.msgBoasVindas.replace("{user}", `${member}`);
-  canal.send(mensagem).catch(() => {});
-});
 
 // BOOST
 client.on("guildMemberUpdate", async (oldMember, newMember) => {
@@ -254,7 +240,6 @@ client.on("messageCreate", async (message) => {
   const comandosAdm = [
     "!limpar",
     "!comandos",
-    "!boasvindas",
     "!cargoimune",
     "!antspam",
     "!boost",
@@ -290,9 +275,6 @@ client.on("messageCreate", async (message) => {
 🚫 ANTSPAM
 \`!antspam aqui\`
 \`!cargoimune ID\`
-
-👋 BOAS-VINDAS
-\`!boasvindas mensagem\`
 
 🚀 BOOST
 \`!boost aqui\`
@@ -409,22 +391,6 @@ client.on("messageCreate", async (message) => {
     salvarConfigs();
 
     return message.reply(`✅ Aviso das ${removido.hora} removido.`);
-  }
-
-  // BOAS VINDAS
-  if (comando === "!boasvindas") {
-    const novaMsg = args.slice(1).join(" ");
-
-    if (!novaMsg) {
-      return message.reply("Use: `!boasvindas Bem-vindo(a) {user}`");
-    }
-
-    config.canalBoasVindas = message.channel.id;
-    config.msgBoasVindas = novaMsg;
-
-    salvarConfigs();
-
-    return message.reply("✅ Boas-vindas configuradas.");
   }
 
   // CARGO IMUNE
