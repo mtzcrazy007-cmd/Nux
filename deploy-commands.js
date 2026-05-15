@@ -3,7 +3,8 @@ require("dotenv").config();
 const {
   REST,
   Routes,
-  SlashCommandBuilder
+  SlashCommandBuilder,
+  PermissionFlagsBits
 } = require("discord.js");
 
 const commands = [
@@ -15,6 +16,9 @@ const commands = [
   new SlashCommandBuilder()
     .setName("comandos")
     .setDescription("Abre o painel do bot")
+    .setDefaultMemberPermissions(
+      PermissionFlagsBits.Administrator
+    )
 
 ].map(cmd => cmd.toJSON());
 
