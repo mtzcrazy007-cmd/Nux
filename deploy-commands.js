@@ -7,6 +7,7 @@ const {
 } = require("discord.js");
 
 const commands = [
+
   new SlashCommandBuilder()
     .setName("nux")
     .setDescription("Verifica se o bot está online"),
@@ -14,21 +15,31 @@ const commands = [
   new SlashCommandBuilder()
     .setName("comandos")
     .setDescription("Abre o painel do bot")
+
 ].map(cmd => cmd.toJSON());
 
-const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
+const rest = new REST({ version: "10" })
+  .setToken(process.env.TOKEN);
 
 (async () => {
+
   try {
-    console.log("Registrando comandos...");
+
+    console.log("Registrando comandos globais...");
 
     await rest.put(
-      Routes.applicationCommands(process.env.CLIENT_ID),
+      Routes.applicationCommands(
+        process.env.CLIENT_ID
+      ),
       { body: commands }
     );
 
-    console.log("✅ Comandos registrados.");
+    console.log("✅ Comandos globais registrados.");
+
   } catch (err) {
+
     console.error(err);
+
   }
+
 })();
